@@ -8,13 +8,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, CheckCircle, FileText, LayoutDashboard, Menu, Printer, X } from "lucide-react";
 
 import { DocForm } from "./components/DocForm";
-import { generateLampiran, generateSingleLampiran } from "./lib/docGenerators";
+import { generateDaftarHadir, generateDaftarHadirXlsx, generateLampiran, generatePengeluaranRiil, generatePengeluaranRiilXlsx, generateSingleLampiran, generateSpj, generateSpjXlsx } from "./lib/docGenerators";
 import { DocPreview } from "./components/DocPreview";
 import { DOC_TYPES } from "./data/docTypes";
 import { DocCard, GenerateDocxButton, GoogleSheetCard, StatCard, XlsxUploadCard } from "./components/FormPanels";
 import { cleanText, upperText } from "./lib/helpers";
 import { enrichApproveByPmlWithFotoBukti, loadGoogleSheet, normalizeGoogleSheetUrl, parseApproveByPmlData, parseBappData, parseDataPerSlsData, parseDataPmlProgressData, parseLampiranXlsxData, parseStatusSlsData, parseXlsxData } from "./lib/parsers";
-import { LAMPIRAN_PML_TEMPLATE_URL, LAMPIRAN_PPL_TEMPLATE_URL } from "./data/templates";
+import { DAFTAR_HADIR_TEMPLATE_URL, LAMPIRAN_PML_TEMPLATE_URL, LAMPIRAN_PPL_TEMPLATE_URL, PENGELUARAN_RIIL_TEMPLATE_URL, SPJ_TEMPLATE_URL } from "./data/templates";
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
@@ -361,7 +361,7 @@ export default function PortalAdministrasiSE2026() {
                   </motion.div>
                 )}
                 <div className="mb-10 grid grid-cols-3 gap-4">
-                  <StatCard value="3" label="Jenis Dokumen Aktif" />
+                  <StatCard value="4" label="Jenis Dokumen Aktif" />
                   <StatCard value="SE2026" label="Kegiatan" />
                   <StatCard value={bappData.length || "—"} label="Petugas Aktif" highlight={bappData.length > 0} />
                 </div>
@@ -403,6 +403,24 @@ export default function PortalAdministrasiSE2026() {
                     <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-2xl border border-orange-200 bg-white px-5 py-2.5 text-sm font-black text-orange-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-orange-50">
                       <Printer size={16} /> Cetak
                     </button>
+                    {selectedDoc?.id === "daftar-hadir" && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+                        <GenerateDocxButton label="Unduh Word" onGenerate={() => generateDaftarHadir(DAFTAR_HADIR_TEMPLATE_URL, previewData.formValues, previewData.peserta, previewData.namaInda, previewData.selectedFilterGroup)} />
+                        <GenerateDocxButton label="Unduh Excel" onGenerate={() => generateDaftarHadirXlsx(previewData.formValues, previewData.peserta, previewData.namaInda, previewData.selectedFilterGroup)} />
+                      </div>
+                    )}
+                    {selectedDoc?.id === "pengeluaran-riil" && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+                        <GenerateDocxButton label="Unduh Word" onGenerate={() => generatePengeluaranRiil(PENGELUARAN_RIIL_TEMPLATE_URL, previewData.formValues, previewData.peserta)} />
+                        <GenerateDocxButton label="Unduh Excel" onGenerate={() => generatePengeluaranRiilXlsx(previewData.formValues, previewData.peserta)} />
+                      </div>
+                    )}
+                    {selectedDoc?.id === "spj" && (
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
+                        <GenerateDocxButton label="Unduh Word" onGenerate={() => generateSpj(SPJ_TEMPLATE_URL, previewData.formValues, previewData.peserta)} />
+                        <GenerateDocxButton label="Unduh Excel" onGenerate={() => generateSpjXlsx(previewData.formValues, previewData.peserta)} />
+                      </div>
+                    )}
                     {selectedDoc?.id === "lampiran" && (
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
