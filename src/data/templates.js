@@ -38,3 +38,12 @@ export const BERKAS_PEMBAYARAN_PML_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN 
 export const BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN PPL.docx";
 export const SURAT_KEPALA_TEMPLATE_URL = "/templates/SURAT PERNYATAAN KEPALA BPS.docx";
 
+// ─── EXPORT EXCEL (kop surat, per halaman → per sheet) ─────────────────────
+// Word tidak punya "jumlah baris per halaman" yang eksplisit (auto-flow sesuai
+// margin/font), jadi untuk versi Excel dipakai angka perkiraan yang bisa
+// disesuaikan di sini tanpa perlu bongkar kode generator.
+export const KOP_SURAT_LOGO_URL = "/Logo BPS - Horizontal.png";
+export const DAFTAR_HADIR_ROWS_PER_PAGE = 20;
+export const SPJ_ROWS_PER_PAGE           = 15;
+export const DPR_ROWS_PER_PAGE           = 15;
+

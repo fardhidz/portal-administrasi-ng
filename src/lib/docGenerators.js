@@ -6,11 +6,11 @@ import PizZip from "pizzip";
 import JSZip from "jszip";
 import Docxtemplater from "docxtemplater";
 import { saveAs } from "file-saver";
-import * as XLSX from "xlsx";
 
 import { calcDurationDays, cleanText, formatRupiah, formatTanggalBulanIndonesia, formatTanggalIndonesia, formatTanggalLengkapIndonesia, normalizeJamIndonesia, sortDaftarHadirPeserta, sortPesertaByJabatanOrder, spellTerbilang, upperText } from "./helpers";
 import { chunkFotoBuktiIntoRows, collectFotoBuktiFromApproveRows, createFotoBuktiImageModule, dedupeBappRows, extractNomorPrefix, filterApproveByPmlRowsForBappRow, getBappDateParts, zipToDocxBlob } from "./parsers";
-import { TANDA_TERIMA_LAPANGAN_TEMPLATE_URL, TANDA_TERIMA_TEMPLATE_URL } from "../data/templates";
+import { DAFTAR_HADIR_ROWS_PER_PAGE, DPR_ROWS_PER_PAGE, SPJ_ROWS_PER_PAGE, TANDA_TERIMA_LAPANGAN_TEMPLATE_URL, TANDA_TERIMA_TEMPLATE_URL } from "../data/templates";
+import { buildPaginatedWorkbook, chunkRows } from "./xlsxKopSurat";
 
 // ─── TEMPLATE DATA BUILDERS ───────────────────────────────────────────────────
 
@@ -297,25 +297,35 @@ export async function generateDaftarHadir(templateUrl, formValues, peserta, nama
   saveAs(blob, `Daftar Hadir Gelombang ${safeGelombang} Kelas ${safeKelas}.docx`);
 }
 
-export function generateDaftarHadirXlsx(formValues, peserta, namaInda, selectedFilterGroup = "") {
+export async function generateDaftarHadirXlsx(formValues, peserta, namaInda, selectedFilterGroup = "") {
   const data = buildDaftarHadirTemplateData(formValues || {}, peserta || [], namaInda || "", selectedFilterGroup);
-  const aoa = [
-    ["DAFTAR HADIR PELATIHAN SE2026"],
-    ["Tanggal", data.tanggal_kegiatan],
-    ["Jam", data.jam_kegiatan],
-    ["Tempat", data.tempat_kegiatan],
-    ["Gelombang", data.gelombang, "Kelas", data.kelas],
-    [],
-    ["No", "Nama", "Jabatan", "Wilayah Tugas"],
-    ...data.peserta.map((p) => [p.no, p.nama, p.jabatan, p.wil_tugas]),
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 5 }, { wch: 32 }, { wch: 22 }, { wch: 28 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Daftar Hadir");
   const safeGelombang = formValues?.gelombang || "X";
   const safeKelas     = selectedFilterGroup === "panitia-inda" ? "-" : (formValues?.kelas || "X");
-  XLSX.writeFile(wb, `Daftar Hadir Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`);
+
+  await buildPaginatedWorkbook({
+    fileName: `Daftar Hadir Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`,
+    sheetLabel: "Halaman",
+    judul: "DAFTAR HADIR PESERTA PELATIHAN PETUGAS SENSUS EKONOMI 2026",
+    infoLines: [
+      ["Hari / Tanggal", data.tanggal_kegiatan],
+      ["Jam", data.jam_kegiatan],
+      ["Tempat", data.tempat_kegiatan],
+      ["Gelombang / Kelas", `${data.gelombang} / ${data.kelas}`],
+    ],
+    columns: [
+      { header: "No", value: (p) => p.no, align: "center", width: 5 },
+      { header: "Nama", value: (p) => p.nama, width: 30 },
+      { header: "Jabatan", value: (p) => p.jabatan, width: 20 },
+      { header: "Wilayah Tugas", value: (p) => p.wil_tugas, width: 26 },
+      { header: "Tanda Tangan", value: () => "", width: 18 },
+    ],
+    pages: chunkRows(data.peserta, DAFTAR_HADIR_ROWS_PER_PAGE),
+    footerLines: [
+      ["Mengetahui", undefined],
+      [data.keterangan_ttd || "", undefined],
+      [data.nama_inda || "", undefined, true],
+    ],
+  });
 }
 
 // TANDA TERIMA
@@ -483,23 +493,29 @@ export async function generatePengeluaranRiil(templateUrl, formValues, peserta) 
   saveAs(blob, `Daftar Pengeluaran Riil ${formValues.no || "SE2026"}.docx`);
 }
 
-export function generatePengeluaranRiilXlsx(formValues, peserta) {
+export async function generatePengeluaranRiilXlsx(formValues, peserta) {
   const data = buildPengeluaranRiilTemplateData(formValues || {}, peserta || []);
-  const aoa = [
-    ["DAFTAR PENGELUARAN RIIL (DPR)"],
-    ["Tanggal Surat", data.tanggal_surat],
-    [],
-    ["No", "Nama", "NIK", "Jabatan", "Pangkat/Gol"],
-    ...data.peserta.map((p) => [p.no, p.nama, p.nik, p.jabatan, p.pangkat]),
-    [],
-    ["", "", "", "Total", data.biaya_total],
-    ["", "", "", "Terbilang", data.biaya_terbilang],
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 5 }, { wch: 32 }, { wch: 18 }, { wch: 22 }, { wch: 18 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "DPR");
-  XLSX.writeFile(wb, `Daftar Pengeluaran Riil ${formValues?.no || "SE2026"}.xlsx`);
+
+  await buildPaginatedWorkbook({
+    fileName: `Daftar Pengeluaran Riil ${formValues?.no || "SE2026"}.xlsx`,
+    sheetLabel: "Halaman",
+    judul: "DAFTAR PENGELUARAN RIIL (DPR)",
+    infoLines: [
+      ["Tanggal Surat", data.tanggal_surat],
+    ],
+    columns: [
+      { header: "No", value: (p) => p.no, align: "center", width: 5 },
+      { header: "Nama", value: (p) => p.nama, width: 30 },
+      { header: "NIK", value: (p) => p.nik, width: 18 },
+      { header: "Jabatan", value: (p) => p.jabatan, width: 20 },
+      { header: "Pangkat/Gol", value: (p) => p.pangkat, width: 18 },
+    ],
+    pages: chunkRows(data.peserta, DPR_ROWS_PER_PAGE),
+    footerLines: [
+      ["Total", `Rp ${data.biaya_total}`, true],
+      ["Terbilang", data.biaya_terbilang, true],
+    ],
+  });
 }
 
 // SPJ
@@ -559,32 +575,39 @@ export async function generateSpj(templateUrl, formValues, peserta) {
   saveAs(blob, `SPJ ${safeKelompok} ${safeTempat} Gelombang ${safeGelombang} Kelas ${safeKelas}.docx`);
 }
 
-export function generateSpjXlsx(formValues, peserta) {
+export async function generateSpjXlsx(formValues, peserta) {
   const data = buildSpjTemplateData(formValues || {}, peserta || []);
-  const aoa = [
-    ["SPJ PELATIHAN SE2026"],
-    ["Kelompok Peserta", data.kelompok_peserta],
-    ["Tempat", data.tempat, "Gelombang", data.gelombang, "Kelas", data.kelas],
-    ["Tanggal Pelunasan", data.tanggal_pelunasan],
-    [],
-    ["No", "Nama", "NIK", "Jabatan", "Wilayah Tugas"],
-    ...data.peserta.map((p) => [p.no, p.nama, p.nik, p.jabatan, p.wil_tugas]),
-    [],
-    ["", "", "", "Jumlah OK", data.jumlah_ok],
-    ["", "", "", "Jumlah Uang", data.jumlah_uang],
-    ["", "", "", "Total Kotor", data.total_jumlah_kotor],
-    ["", "", "", "Total Bersih", data.total_jumlah_bersih],
-    ["", "", "", "Terbilang", data.total_terbilang],
-  ];
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws["!cols"] = [{ wch: 5 }, { wch: 32 }, { wch: 18 }, { wch: 22 }, { wch: 28 }];
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "SPJ");
-  const safeKelompok = formValues?.kelompokPeserta || "SPJ";
-  const safeTempat = formValues?.tempat || "SE2026";
+  const safeKelompok  = formValues?.kelompokPeserta || "SPJ";
+  const safeTempat    = formValues?.tempat || "SE2026";
   const safeGelombang = formValues?.gelombang || "X";
-  const safeKelas = formValues?.kelas || "-";
-  XLSX.writeFile(wb, `SPJ ${safeKelompok} ${safeTempat} Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`);
+  const safeKelas     = formValues?.kelas || "-";
+
+  await buildPaginatedWorkbook({
+    fileName: `SPJ ${safeKelompok} ${safeTempat} Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`,
+    sheetLabel: "Halaman",
+    judul: "SPJ PELATIHAN SENSUS EKONOMI 2026",
+    infoLines: [
+      ["Kelompok Peserta", data.kelompok_peserta],
+      ["Tempat", data.tempat],
+      ["Gelombang / Kelas", `${data.gelombang} / ${data.kelas}`],
+      ["Tanggal Pelunasan", data.tanggal_pelunasan],
+    ],
+    columns: [
+      { header: "No", value: (p) => p.no, align: "center", width: 5 },
+      { header: "Nama", value: (p) => p.nama, width: 30 },
+      { header: "NIK", value: (p) => p.nik, width: 18 },
+      { header: "Jabatan", value: (p) => p.jabatan, width: 20 },
+      { header: "Wilayah Tugas", value: (p) => p.wil_tugas, width: 26 },
+    ],
+    pages: chunkRows(data.peserta, SPJ_ROWS_PER_PAGE),
+    footerLines: [
+      ["Jumlah OK", data.jumlah_ok, true],
+      ["Jumlah Uang", data.jumlah_uang, true],
+      ["Total Kotor", data.total_jumlah_kotor, true],
+      ["Total Bersih", data.total_jumlah_bersih, true],
+      ["Terbilang", data.total_terbilang, true],
+    ],
+  });
 }
 
 // SPD
