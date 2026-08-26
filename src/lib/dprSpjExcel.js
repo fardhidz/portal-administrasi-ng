@@ -5,20 +5,18 @@
 // blok tanda tangan — semuanya tetap ada.
 //
 // PERUBAHAN vs versi lama:
-// - DPR: pagination tetap berupa SHEET/TAB TERPISAH beneran ("Halaman 1",
-//   "Halaman 2", dst — bukan cuma efek cetak). Bedanya dengan versi lama:
-//   titik potong sheet baru sekarang dimulai TEPAT SETELAH blok tanda
-//   tangan (baris NIP Pejabat Pembuat Komitmen). Jadi:
-//     - Halaman 1  = surat pernyataan + tabel biaya + tanda tangan SAJA
-//                    (tidak dicampur dengan tabel peserta seperti versi lama).
-//     - Halaman 2..N = khusus lampiran peserta, dipecah per rowsPerPage baris.
+// - DPR: tetap 2 sheet tetap ("Halaman 1" dan "Halaman 2"), TIDAK
+//   bertambah lagi mengikuti jumlah peserta:
+//     - Halaman 1 = surat pernyataan + tabel biaya + tanda tangan SAJA.
+//     - Halaman 2 = lampiran peserta, SEMUA peserta dalam satu sheet
+//                   (tidak dipecah per rowsPerPage lagi).
 // - SPJ dan Daftar Hadir: tidak dipecah sama sekali, satu sheet saja,
 //   tabel mengalir apa adanya (Excel auto-paginate sendiri saat dicetak).
 // ============================================================
 
 import ExcelJS from "exceljs";
 import { saveAs } from "file-saver";
-import { drawKopSurat, drawLabelValue, drawParagraph, chunkRows } from "./xlsxKopSurat";
+import { drawKopSurat, drawLabelValue, drawParagraph } from "./xlsxKopSurat";
 
 const THIN_BORDER = { style: "thin", color: { argb: "FF000000" } };
 const ALL_BORDERS = { top: THIN_BORDER, left: THIN_BORDER, bottom: THIN_BORDER, right: THIN_BORDER };
@@ -46,17 +44,16 @@ function saveWorkbook(workbook, fileName) {
 
 // ============================================================
 // DAFTAR PENGELUARAN RIIL (DPR)
-// Sheet terpisah beneran:
-//   - "Halaman 1"      : surat pernyataan + tabel biaya + tanda tangan saja
-//   - "Halaman 2..N+1" : lampiran peserta, dipecah per rowsPerPage baris
+// Dua sheet tetap (tidak lebih):
+//   - "Halaman 1" : surat pernyataan + tabel biaya + tanda tangan saja
+//   - "Halaman 2" : lampiran peserta, SEMUA peserta dalam satu sheet
+//                   (tidak dipecah lagi per rowsPerPage)
 // ============================================================
 const DPR_COLUMNS = [{ width: 5 }, { width: 26 }, { width: 20 }, { width: 20 }, { width: 20 }, { width: 20 }];
 
-export async function generateDprExcel(data, fileName, rowsPerPage = 15) {
+export async function generateDprExcel(data, fileName) {
   const workbook = await newWorkbook();
   const totalKolom = 6;
-  const lampiranPages = chunkRows(data.peserta, rowsPerPage);
-  const totalHalaman = 1 + lampiranPages.length;
 
   // ---------------- Halaman 1: surat + biaya + tanda tangan ----------------
   const wsSurat = workbook.addWorksheet("Halaman 1");
@@ -114,38 +111,32 @@ export async function generateDprExcel(data, fileName, rowsPerPage = 15) {
   row = drawParagraph(wsSurat, row, "Ragil Hermanto", { bold: true, align: "right", totalKolom });
   row = drawParagraph(wsSurat, row, "NIP. 199406212017011001", { align: "right", totalKolom });
 
-  // ---------------- Halaman 2..N+1: lampiran peserta, per chunk ----------------
-  for (let i = 0; i < lampiranPages.length; i += 1) {
-    const nomorHalaman = i + 2;
-    const ws = workbook.addWorksheet(`Halaman ${nomorHalaman}`);
-    ws.columns = DPR_COLUMNS;
+  // ---------------- Halaman 2: lampiran peserta, satu sheet, semua peserta ----------------
+  const wsLampiran = workbook.addWorksheet("Halaman 2");
+  wsLampiran.columns = DPR_COLUMNS;
 
-    let rowLampiran = await drawKopSurat(ws, { judul: "DAFTAR PENGELUARAN RIIL", totalKolom });
+  let rowLampiran = await drawKopSurat(wsLampiran, { judul: "DAFTAR PENGELUARAN RIIL", totalKolom });
 
-    rowLampiran = drawParagraph(
-      ws, rowLampiran,
-      i === 0 ? "LAMPIRAN PELAKSANA PERJALANAN DINAS" : "LAMPIRAN PELAKSANA PERJALANAN DINAS (Lanjutan)",
-      { bold: true, align: "center", totalKolom }
-    );
+  rowLampiran = drawParagraph(wsLampiran, rowLampiran, "LAMPIRAN PELAKSANA PERJALANAN DINAS", { bold: true, align: "center", totalKolom });
+  rowLampiran += 1;
+
+  const lampiranHeader = ["No", "Nama", "NIP/NIK", "Pangkat/Golongan", "Jabatan", "Tanda Tangan"];
+  lampiranHeader.forEach((h, idx) => styledCell(wsLampiran, rowLampiran, idx + 1, h, { bold: true, align: "center", fill: "FFE8E8E8" }));
+  const lampiranHeaderRow = rowLampiran;
+  rowLampiran += 1;
+
+  data.peserta.forEach((p) => {
+    styledCell(wsLampiran, rowLampiran, 1, p.no, { align: "center" });
+    styledCell(wsLampiran, rowLampiran, 2, p.nama);
+    styledCell(wsLampiran, rowLampiran, 3, p.nik);
+    styledCell(wsLampiran, rowLampiran, 4, p.pangkat);
+    styledCell(wsLampiran, rowLampiran, 5, p.jabatan);
+    styledCell(wsLampiran, rowLampiran, 6, "");
     rowLampiran += 1;
+  });
 
-    const lampiranHeader = ["No", "Nama", "NIP/NIK", "Pangkat/Golongan", "Jabatan", "Tanda Tangan"];
-    lampiranHeader.forEach((h, idx) => styledCell(ws, rowLampiran, idx + 1, h, { bold: true, align: "center", fill: "FFE8E8E8" }));
-    rowLampiran += 1;
-
-    lampiranPages[i].forEach((p) => {
-      styledCell(ws, rowLampiran, 1, p.no, { align: "center" });
-      styledCell(ws, rowLampiran, 2, p.nama);
-      styledCell(ws, rowLampiran, 3, p.nik);
-      styledCell(ws, rowLampiran, 4, p.pangkat);
-      styledCell(ws, rowLampiran, 5, p.jabatan);
-      styledCell(ws, rowLampiran, 6, "");
-      rowLampiran += 1;
-    });
-
-    rowLampiran += 1;
-    drawParagraph(ws, rowLampiran, `Halaman ${nomorHalaman} dari ${totalHalaman}`, { italic: true, align: "right", totalKolom });
-  }
+  // header tabel diulang otomatis kalau Excel auto-paginate saat dicetak
+  wsLampiran.pageSetup.printTitlesRow = `${lampiranHeaderRow}:${lampiranHeaderRow}`;
 
   await saveWorkbook(workbook, fileName);
 }
