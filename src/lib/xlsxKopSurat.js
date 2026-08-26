@@ -85,7 +85,32 @@ export async function drawKopSurat(worksheet, { judul, totalKolom = 6 }) {
   return row;
 }
 
-// ─── INFO BLOCK (Hari/Tanggal, Tempat, dst) ─────────────────────────────────
+// ─── PARAGRAF BEBAS (isi surat) ─────────────────────────────────────────────
+export function drawParagraph(worksheet, startRow, text, { bold = false, align = "left", totalKolom = 6, italic = false } = {}) {
+  const row = startRow;
+  worksheet.mergeCells(row, 1, row, totalKolom);
+  const cell = worksheet.getCell(row, 1);
+  cell.value = text;
+  cell.font = { bold, italic };
+  cell.alignment = { horizontal: align, vertical: "middle", wrapText: true };
+  return row + 1;
+}
+
+export function drawBlankRow(worksheet, startRow) {
+  return startRow + 1;
+}
+
+// ─── BLOK LABEL: NILAI (mis. "Nama : (terlampir)") ─────────────────────────
+export function drawLabelValue(worksheet, startRow, label, value, { totalKolom = 6 } = {}) {
+  const row = startRow;
+  worksheet.getCell(row, 1).value = label;
+  worksheet.getCell(row, 1).font = { bold: true };
+  worksheet.mergeCells(row, 2, row, totalKolom);
+  worksheet.getCell(row, 2).value = `: ${value ?? ""}`;
+  return row + 1;
+}
+
+
 export function drawInfoLines(worksheet, startRow, infoLines = []) {
   let row = startRow;
   infoLines.forEach(([label, value]) => {

@@ -9,8 +9,8 @@ import { saveAs } from "file-saver";
 
 import { calcDurationDays, cleanText, formatRupiah, formatTanggalBulanIndonesia, formatTanggalIndonesia, formatTanggalLengkapIndonesia, normalizeJamIndonesia, sortDaftarHadirPeserta, sortPesertaByJabatanOrder, spellTerbilang, upperText } from "./helpers";
 import { chunkFotoBuktiIntoRows, collectFotoBuktiFromApproveRows, createFotoBuktiImageModule, dedupeBappRows, extractNomorPrefix, filterApproveByPmlRowsForBappRow, getBappDateParts, zipToDocxBlob } from "./parsers";
-import { DAFTAR_HADIR_ROWS_PER_PAGE, DPR_ROWS_PER_PAGE, SPJ_ROWS_PER_PAGE, TANDA_TERIMA_LAPANGAN_TEMPLATE_URL, TANDA_TERIMA_TEMPLATE_URL } from "../data/templates";
-import { buildPaginatedWorkbook, chunkRows } from "./xlsxKopSurat";
+import { DPR_ROWS_PER_PAGE, SPJ_ROWS_PER_PAGE, TANDA_TERIMA_LAPANGAN_TEMPLATE_URL, TANDA_TERIMA_TEMPLATE_URL } from "../data/templates";
+import { generateDaftarHadirExcel, generateDprExcel, generateSpjExcel } from "./dprSpjExcel";
 
 // ─── TEMPLATE DATA BUILDERS ───────────────────────────────────────────────────
 
@@ -301,31 +301,7 @@ export async function generateDaftarHadirXlsx(formValues, peserta, namaInda, sel
   const data = buildDaftarHadirTemplateData(formValues || {}, peserta || [], namaInda || "", selectedFilterGroup);
   const safeGelombang = formValues?.gelombang || "X";
   const safeKelas     = selectedFilterGroup === "panitia-inda" ? "-" : (formValues?.kelas || "X");
-
-  await buildPaginatedWorkbook({
-    fileName: `Daftar Hadir Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`,
-    sheetLabel: "Halaman",
-    judul: "DAFTAR HADIR PESERTA PELATIHAN PETUGAS SENSUS EKONOMI 2026",
-    infoLines: [
-      ["Hari / Tanggal", data.tanggal_kegiatan],
-      ["Jam", data.jam_kegiatan],
-      ["Tempat", data.tempat_kegiatan],
-      ["Gelombang / Kelas", `${data.gelombang} / ${data.kelas}`],
-    ],
-    columns: [
-      { header: "No", value: (p) => p.no, align: "center", width: 5 },
-      { header: "Nama", value: (p) => p.nama, width: 30 },
-      { header: "Jabatan", value: (p) => p.jabatan, width: 20 },
-      { header: "Wilayah Tugas", value: (p) => p.wil_tugas, width: 26 },
-      { header: "Tanda Tangan", value: () => "", width: 18 },
-    ],
-    pages: chunkRows(data.peserta, DAFTAR_HADIR_ROWS_PER_PAGE),
-    footerLines: [
-      ["Mengetahui", undefined],
-      [data.keterangan_ttd || "", undefined],
-      [data.nama_inda || "", undefined, true],
-    ],
-  });
+  await generateDaftarHadirExcel(data, `Daftar Hadir Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`);
 }
 
 // TANDA TERIMA
@@ -495,27 +471,7 @@ export async function generatePengeluaranRiil(templateUrl, formValues, peserta) 
 
 export async function generatePengeluaranRiilXlsx(formValues, peserta) {
   const data = buildPengeluaranRiilTemplateData(formValues || {}, peserta || []);
-
-  await buildPaginatedWorkbook({
-    fileName: `Daftar Pengeluaran Riil ${formValues?.no || "SE2026"}.xlsx`,
-    sheetLabel: "Halaman",
-    judul: "DAFTAR PENGELUARAN RIIL (DPR)",
-    infoLines: [
-      ["Tanggal Surat", data.tanggal_surat],
-    ],
-    columns: [
-      { header: "No", value: (p) => p.no, align: "center", width: 5 },
-      { header: "Nama", value: (p) => p.nama, width: 30 },
-      { header: "NIK", value: (p) => p.nik, width: 18 },
-      { header: "Jabatan", value: (p) => p.jabatan, width: 20 },
-      { header: "Pangkat/Gol", value: (p) => p.pangkat, width: 18 },
-    ],
-    pages: chunkRows(data.peserta, DPR_ROWS_PER_PAGE),
-    footerLines: [
-      ["Total", `Rp ${data.biaya_total}`, true],
-      ["Terbilang", data.biaya_terbilang, true],
-    ],
-  });
+  await generateDprExcel(data, `Daftar Pengeluaran Riil ${formValues?.no || "SE2026"}.xlsx`, DPR_ROWS_PER_PAGE);
 }
 
 // SPJ
@@ -581,33 +537,11 @@ export async function generateSpjXlsx(formValues, peserta) {
   const safeTempat    = formValues?.tempat || "SE2026";
   const safeGelombang = formValues?.gelombang || "X";
   const safeKelas     = formValues?.kelas || "-";
-
-  await buildPaginatedWorkbook({
-    fileName: `SPJ ${safeKelompok} ${safeTempat} Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`,
-    sheetLabel: "Halaman",
-    judul: "SPJ PELATIHAN SENSUS EKONOMI 2026",
-    infoLines: [
-      ["Kelompok Peserta", data.kelompok_peserta],
-      ["Tempat", data.tempat],
-      ["Gelombang / Kelas", `${data.gelombang} / ${data.kelas}`],
-      ["Tanggal Pelunasan", data.tanggal_pelunasan],
-    ],
-    columns: [
-      { header: "No", value: (p) => p.no, align: "center", width: 5 },
-      { header: "Nama", value: (p) => p.nama, width: 30 },
-      { header: "NIK", value: (p) => p.nik, width: 18 },
-      { header: "Jabatan", value: (p) => p.jabatan, width: 20 },
-      { header: "Wilayah Tugas", value: (p) => p.wil_tugas, width: 26 },
-    ],
-    pages: chunkRows(data.peserta, SPJ_ROWS_PER_PAGE),
-    footerLines: [
-      ["Jumlah OK", data.jumlah_ok, true],
-      ["Jumlah Uang", data.jumlah_uang, true],
-      ["Total Kotor", data.total_jumlah_kotor, true],
-      ["Total Bersih", data.total_jumlah_bersih, true],
-      ["Terbilang", data.total_terbilang, true],
-    ],
-  });
+  await generateSpjExcel(
+    data,
+    `SPJ ${safeKelompok} ${safeTempat} Gelombang ${safeGelombang} Kelas ${safeKelas}.xlsx`,
+    SPJ_ROWS_PER_PAGE
+  );
 }
 
 // SPD
