@@ -34,9 +34,6 @@ export const LAMPIRAN_PML_TEMPLATE_URL              = "/templates/LAMPIRAN PML.d
 export const LAMPIRAN_PPL_TEMPLATE_URL              = "/templates/LAMPIRAN PPL.docx";
 export const BAST_PML_TEMPLATE_URL = "/templates/BAST PML.docx";
 export const BAST_PPL_TEMPLATE_URL = "/templates/BAST PPL.docx";
-// Gunakan template revisi yang valid; template lama / "TERMIN II" masih memiliki
-// loop Word XML `peserta` yang tidak tertutup dan memicu Docxtemplater error
-// "unclosed_loop" saat generate gabungan administrasi pembayaran.
 export const BERKAS_PEMBAYARAN_PML_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN TERMIN II PML (1).docx";
 export const BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN PPL TERMIN II (1).docx";
 export const SURAT_KEPALA_TEMPLATE_URL = "/templates/SURAT PERNYATAAN KEPALA BPS.docx";
