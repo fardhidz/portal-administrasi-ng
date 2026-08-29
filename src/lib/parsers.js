@@ -518,37 +518,82 @@ export async function fetchFotoBuktiRowsFromDatabaseSls() {
   const raw = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
   const rows = raw.map(normalizeFotoBuktiRow).filter((row) => row.email_pml || row.email_ppl);
 
+  // 🔥 DIAGNOSTIK: supaya kelihatan di console kalau Database SLS ternyata
+  // ke-fetch tapi isinya nol baris yang punya email (header kolom beda nama,
+  // sheet kosong, dll) — sebelumnya kegagalan ini "diam" dan baru ketahuan
+  // belakangan lewat foto_bukti_pml/ppl yang undefined di approveByPmlRows.
+  console.log(
+    `Database SLS: ${raw.length} baris mentah, ${rows.length} baris punya email PML/PPL.`
+  );
+
   fotoBuktiDatabaseSlsCache = rows;
   return rows;
 }
 
-// Map: "EMAIL_PML::EMAIL_PPL" -> { fotoPml: Set, fotoPpl: Set } (satu pasangan
-// PML+PPL bisa punya beberapa foto dari beberapa baris SLS berbeda).
-// 🔥 BARU: foto PML dan foto PPL disimpan terpisah karena sumbernya sekarang
-// dua kolom berbeda ("Foto Bukti PML" vs "Foto Bukti PPL").
+// Map utama: "EMAIL_PML::EMAIL_PPL" -> { fotoPml: Set, fotoPpl: Set } (satu
+// pasangan PML+PPL bisa punya beberapa foto dari beberapa baris SLS berbeda).
+// Map cadangan (fallback): per email PPL saja dan per email PML saja.
+// 🔥 FIX: sebelumnya HANYA memakai kunci gabungan "EMAIL_PML::EMAIL_PPL", yang
+// mengharuskan KEDUA email cocok persis pada baris Database SLS yang sama.
+// Di praktiknya banyak baris submission di Database SLS hanya mengisi salah
+// satu email (mis. Email PPL terisi tapi Email PML kosong/beda ejaan dengan
+// sheet Approve by PML), sehingga hampir semua baris gagal cocok dan foto
+// selalu kosong walau datanya sebenarnya ada. Sekarang dicoba pasangan persis
+// dulu, lalu fallback ke pencocokan per-email saja.
 export function buildFotoBuktiMapByPmlPpl(fotoBuktiRows = []) {
-  const map = new Map();
+  const pairMap = new Map();
+  const byPplEmail = new Map();
+  const byPmlEmail = new Map();
+
   for (const row of fotoBuktiRows || []) {
     const emailPml = upperText(row.email_pml);
     const emailPpl = upperText(row.email_ppl);
     if (!emailPml && !emailPpl) continue;
-    const key = `${emailPml}::${emailPpl}`;
-    if (!map.has(key)) map.set(key, { fotoPml: new Set(), fotoPpl: new Set() });
-    const entry = map.get(key);
-    for (const url of row.foto_bukti_pml || []) entry.fotoPml.add(url);
-    for (const url of row.foto_bukti_ppl || []) entry.fotoPpl.add(url);
+
+    const pairKey = `${emailPml}::${emailPpl}`;
+    if (!pairMap.has(pairKey)) pairMap.set(pairKey, { fotoPml: new Set(), fotoPpl: new Set() });
+    const pairEntry = pairMap.get(pairKey);
+    for (const url of row.foto_bukti_pml || []) pairEntry.fotoPml.add(url);
+    for (const url of row.foto_bukti_ppl || []) pairEntry.fotoPpl.add(url);
+
+    if (emailPpl) {
+      if (!byPplEmail.has(emailPpl)) byPplEmail.set(emailPpl, new Set());
+      const entry = byPplEmail.get(emailPpl);
+      for (const url of row.foto_bukti_ppl || []) entry.add(url);
+    }
+    if (emailPml) {
+      if (!byPmlEmail.has(emailPml)) byPmlEmail.set(emailPml, new Set());
+      const entry = byPmlEmail.get(emailPml);
+      for (const url of row.foto_bukti_pml || []) entry.add(url);
+    }
   }
-  return map;
+
+  return { pairMap, byPplEmail, byPmlEmail };
 }
 
 export function mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows = [], fotoBuktiMap) {
-  if (!fotoBuktiMap || fotoBuktiMap.size === 0) return approveByPmlRows;
+  const isEmptyMap =
+    !fotoBuktiMap ||
+    ((fotoBuktiMap.pairMap?.size || 0) === 0 &&
+      (fotoBuktiMap.byPplEmail?.size || 0) === 0 &&
+      (fotoBuktiMap.byPmlEmail?.size || 0) === 0);
+  if (isEmptyMap) return approveByPmlRows;
+
   return (approveByPmlRows || []).map((row) => {
-    const key = `${upperText(row.email_pml)}::${upperText(row.email_ppl)}`;
-    const entry = fotoBuktiMap.get(key);
-    if (!entry) return row;
-    const mergedPml = new Set([...(row.foto_bukti_pml || []), ...entry.fotoPml]);
-    const mergedPpl = new Set([...(row.foto_bukti_ppl || []), ...entry.fotoPpl]);
+    const emailPml = upperText(row.email_pml);
+    const emailPpl = upperText(row.email_ppl);
+    const pairEntry = fotoBuktiMap.pairMap.get(`${emailPml}::${emailPpl}`);
+
+    // Pasangan persis dulu; kalau tidak ada, jatuhkan ke pencocokan per-email.
+    const fotoPplSource =
+      pairEntry?.fotoPpl?.size ? pairEntry.fotoPpl : (emailPpl && fotoBuktiMap.byPplEmail.get(emailPpl)) || null;
+    const fotoPmlSource =
+      pairEntry?.fotoPml?.size ? pairEntry.fotoPml : (emailPml && fotoBuktiMap.byPmlEmail.get(emailPml)) || null;
+
+    if (!fotoPplSource && !fotoPmlSource) return row;
+
+    const mergedPml = new Set([...(row.foto_bukti_pml || []), ...(fotoPmlSource || [])]);
+    const mergedPpl = new Set([...(row.foto_bukti_ppl || []), ...(fotoPplSource || [])]);
     return { ...row, foto_bukti_pml: [...mergedPml], foto_bukti_ppl: [...mergedPpl] };
   });
 }
@@ -557,9 +602,16 @@ export async function enrichApproveByPmlWithFotoBukti(approveByPmlRows = []) {
   try {
     const fotoBuktiRows = await fetchFotoBuktiRowsFromDatabaseSls();
     const fotoBuktiMap = buildFotoBuktiMapByPmlPpl(fotoBuktiRows);
-    return mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows, fotoBuktiMap);
+    const merged = mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows, fotoBuktiMap);
+    const rowsWithFoto = merged.filter(
+      (row) => (row.foto_bukti_pml || []).length > 0 || (row.foto_bukti_ppl || []).length > 0
+    ).length;
+    console.log(
+      `Enrich foto bukti: ${fotoBuktiRows.length} baris Database SLS, ${rowsWithFoto} dari ${merged.length} baris Approve by PML kebagian foto.`
+    );
+    return merged;
   } catch (err) {
-    console.warn("Gagal memuat foto dari Database SLS:", err.message);
+    console.warn("Gagal memuat foto dari Database SLS:", err.message, err);
     return approveByPmlRows;
   }
 }
