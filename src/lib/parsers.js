@@ -555,22 +555,23 @@ function mergePhotoArrays(...values) {
   return [...merged];
 }
 
+// 🔧 FIX: satu baris "Database SLS" = satu submission SLS milik SATU pasangan
+// PPL+PML tertentu. Kolom "Foto Bukti PPL" vs "Foto Bukti PML" cuma menandai
+// SIAPA yang mengunggah foto itu (PPL saat submit, atau PML saat approve) —
+// bukan menandai SLS/PPL/PML yang berbeda. Foto di baris itu adalah bukti buat
+// SLS itu, jadi harus tampil di dokumen PPL maupun dokumen PML pemilik baris
+// tsb, walaupun cuma salah satu kolom yang keisi (mis. PML upload foto saat
+// approve, kolom Foto Bukti PPL kosong — foto itu tetap harus muncul di
+// dokumen PPL-nya, begitu juga sebaliknya).
+// Makanya di sini foto dari kedua kolom digabung (union) per baris SEBELUM
+// diagregasi ke Email PPL / Email PML, alih-alih dipisah per kolom seperti
+// sebelumnya.
 export function buildFotoBuktiMapByPmlPpl(fotoBuktiRows = []) {
   const pairMap = new Map();
   const byPplEmail = new Map();
   const byPmlEmail = new Map();
   const byPplName = new Map();
   const byPmlName = new Map();
-  // 🔧 FIX: banyak baris "Database SLS" hanya mengisi salah satu email (paling
-  // sering Email PPL terisi, Email PML kosong/beda ejaan — lihat komentar di
-  // mergeFotoBuktiIntoApproveByPmlRows). Sebelumnya foto_bukti_pml HANYA bisa
-  // ditemukan lewat byPmlEmail, jadi kalau Email PML pada baris itu kosong,
-  // foto PML-nya hilang sama sekali walau Email PPL pada baris yang sama valid.
-  // Map tambahan ini mengaitkan foto_bukti_pml lewat Email PPL pada baris yang
-  // sama, supaya foto PML tetap ketemu lewat PPL yang dia bawahi.
-  const byPplEmailToFotoPml = new Map();
-  // Simetris: foto_bukti_ppl juga bisa dicari lewat Email PML pada baris yang sama.
-  const byPmlEmailToFotoPpl = new Map();
 
   for (const row of fotoBuktiRows || []) {
     const emailPml = normalizePhotoKey(row.email_pml);
@@ -579,43 +580,43 @@ export function buildFotoBuktiMapByPmlPpl(fotoBuktiRows = []) {
     const namePpl = normalizePhotoKey(row.nama_ppl || row.nama || "");
     if (!emailPml && !emailPpl && !namePml && !namePpl) continue;
 
+    // Gabungkan foto dari kolom PPL dan PML pada baris yang sama — keduanya
+    // adalah bukti untuk SLS yang sama, siapa pun yang mengunggahnya.
+    const comboUrls = mergePhotoArrays(
+      row.foto_bukti_ppl || [],
+      row.foto_bukti_pml || [],
+      row.foto_bukti || []
+    );
+    if (comboUrls.length === 0) continue;
+
     const pairKey = `${emailPml}::${emailPpl}`;
-    if (!pairMap.has(pairKey)) pairMap.set(pairKey, { fotoPml: new Set(), fotoPpl: new Set() });
+    if (!pairMap.has(pairKey)) pairMap.set(pairKey, new Set());
     const pairEntry = pairMap.get(pairKey);
-    for (const url of row.foto_bukti_pml || row.foto_bukti || []) pairEntry.fotoPml.add(String(url).trim());
-    for (const url of row.foto_bukti_ppl || row.foto_bukti || []) pairEntry.fotoPpl.add(String(url).trim());
+    for (const url of comboUrls) pairEntry.add(url);
 
     if (emailPpl) {
       if (!byPplEmail.has(emailPpl)) byPplEmail.set(emailPpl, new Set());
       const entry = byPplEmail.get(emailPpl);
-      for (const url of row.foto_bukti_ppl || row.foto_bukti || []) entry.add(String(url).trim());
-
-      if (!byPplEmailToFotoPml.has(emailPpl)) byPplEmailToFotoPml.set(emailPpl, new Set());
-      const fotoPmlEntry = byPplEmailToFotoPml.get(emailPpl);
-      for (const url of row.foto_bukti_pml || row.foto_bukti || []) fotoPmlEntry.add(String(url).trim());
+      for (const url of comboUrls) entry.add(url);
     }
     if (emailPml) {
       if (!byPmlEmail.has(emailPml)) byPmlEmail.set(emailPml, new Set());
       const entry = byPmlEmail.get(emailPml);
-      for (const url of row.foto_bukti_pml || row.foto_bukti || []) entry.add(String(url).trim());
-
-      if (!byPmlEmailToFotoPpl.has(emailPml)) byPmlEmailToFotoPpl.set(emailPml, new Set());
-      const fotoPplEntry = byPmlEmailToFotoPpl.get(emailPml);
-      for (const url of row.foto_bukti_ppl || row.foto_bukti || []) fotoPplEntry.add(String(url).trim());
+      for (const url of comboUrls) entry.add(url);
     }
     if (namePpl) {
       if (!byPplName.has(namePpl)) byPplName.set(namePpl, new Set());
       const entry = byPplName.get(namePpl);
-      for (const url of row.foto_bukti_ppl || row.foto_bukti || []) entry.add(String(url).trim());
+      for (const url of comboUrls) entry.add(url);
     }
     if (namePml) {
       if (!byPmlName.has(namePml)) byPmlName.set(namePml, new Set());
       const entry = byPmlName.get(namePml);
-      for (const url of row.foto_bukti_pml || row.foto_bukti || []) entry.add(String(url).trim());
+      for (const url of comboUrls) entry.add(url);
     }
   }
 
-  return { pairMap, byPplEmail, byPmlEmail, byPplName, byPmlName, byPplEmailToFotoPml, byPmlEmailToFotoPpl };
+  return { pairMap, byPplEmail, byPmlEmail, byPplName, byPmlName };
 }
 
 export function mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows = [], fotoBuktiMap) {
@@ -625,9 +626,7 @@ export function mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows = [], fotoBu
       (fotoBuktiMap.byPplEmail?.size || 0) === 0 &&
       (fotoBuktiMap.byPmlEmail?.size || 0) === 0 &&
       (fotoBuktiMap.byPplName?.size || 0) === 0 &&
-      (fotoBuktiMap.byPmlName?.size || 0) === 0 &&
-      (fotoBuktiMap.byPplEmailToFotoPml?.size || 0) === 0 &&
-      (fotoBuktiMap.byPmlEmailToFotoPpl?.size || 0) === 0);
+      (fotoBuktiMap.byPmlName?.size || 0) === 0);
   if (isEmptyMap) return approveByPmlRows;
 
   return (approveByPmlRows || []).map((row) => {
@@ -637,24 +636,19 @@ export function mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows = [], fotoBu
     const namePpl = normalizePhotoKey(row.nama_ppl || row.nama || "");
     const pairEntry = fotoBuktiMap.pairMap.get(`${emailPml}::${emailPpl}`);
 
+    // Sumber foto sama untuk PPL maupun PML — sudah digabung sejak
+    // buildFotoBuktiMapByPmlPpl. Bedanya hanya cara agregasinya: dokumen PPL
+    // memakai baris-baris milik email/nama PPL ybs, dokumen PML memakai
+    // baris-baris dari SEMUA PPL di bawahnya (lewat email/nama PML ybs).
     const fotoPplSource =
-      pairEntry?.fotoPpl?.size ? pairEntry.fotoPpl
+      pairEntry?.size ? pairEntry
       : (emailPpl && fotoBuktiMap.byPplEmail.get(emailPpl))
       || (namePpl && fotoBuktiMap.byPplName.get(namePpl))
-      // 🔧 FIX: fallback terakhir lewat Email PML pada baris yang sama, untuk
-      // kasus Email PPL kosong/beda ejaan di Database SLS tapi Email PML valid.
-      || (emailPml && fotoBuktiMap.byPmlEmailToFotoPpl.get(emailPml))
       || null;
     const fotoPmlSource =
-      pairEntry?.fotoPml?.size ? pairEntry.fotoPml
+      pairEntry?.size ? pairEntry
       : (emailPml && fotoBuktiMap.byPmlEmail.get(emailPml))
       || (namePml && fotoBuktiMap.byPmlName.get(namePml))
-      // 🔧 FIX UTAMA: fallback lewat Email PPL pada baris yang sama. Ini yang
-      // paling sering dipakai karena di Database SLS, Email PPL jauh lebih
-      // sering terisi benar dibanding Email PML — sebelumnya foto PML selalu
-      // gagal ditemukan kalau Email PML pada baris submission kosong/salah,
-      // padahal Email PPL-nya (dan foto_bukti_pml di baris yang sama) valid.
-      || (emailPpl && fotoBuktiMap.byPplEmailToFotoPml.get(emailPpl))
       || null;
 
     const mergedPml = mergePhotoArrays(row.foto_bukti_pml || row.foto_bukti || [], fotoPmlSource || []);
