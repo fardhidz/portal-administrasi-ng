@@ -945,12 +945,6 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
   const statusSlsRows = Array.isArray(record?.statusSlsRows) ? record.statusSlsRows : [];
   const dataPerSlsRows = Array.isArray(record?.dataPerSlsRows) ? record.dataPerSlsRows : [];
   const approveByPmlRows = Array.isArray(record?.approveByPmlRows) ? record.approveByPmlRows : [];
-   // 🔍 LOG SEMENTARA
-  console.log("Isi foto_bukti per baris:", approveByPmlRows.map(r => ({
-    nama_ppl: r.nama_ppl,
-    foto_bukti_pml: r.foto_bukti_pml,
-    foto_bukti_ppl: r.foto_bukti_ppl,
-  })));
   const firstLampiran = lampiranRows[0] || {};
   const displayName = cleanText(
     record?.displayName || record?.bappRow?.nama || (isPml ? firstLampiran?.nama_pml : firstLampiran?.nama_ppl)
