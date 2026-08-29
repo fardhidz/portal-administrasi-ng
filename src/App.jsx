@@ -51,7 +51,19 @@ export default function PortalAdministrasiSE2026() {
   // Terapkan hasil parsing (baik dari cache /api/data, dari sync manual,
   // maupun dari upload xlsx/Google Sheets langsung) ke semua state form
   // secara konsisten di satu tempat.
-  const applyLoadedData = useCallback((payload, sourceLabel) => {
+  //
+  // 🔥 FIX: cache /api/data bisa saja berisi snapshot LAMA yang disimpan
+  // sebelum fitur pemisahan "Foto Bukti PML" / "Foto Bukti PPL" ditambahkan,
+  // atau /api/sync sempat gagal mengambil Database SLS saat sync terakhir
+  // jalan. Kalau begitu, baris approveByPml pada cache tidak punya
+  // foto_bukti_pml/foto_bukti_ppl sama sekali, sehingga fitur "Gabungan
+  // Administrasi Pembayaran" menghasilkan dokumen tanpa foto meski data
+  // sumbernya sebenarnya ada. Jalur /api/data sebelumnya adalah satu-satunya
+  // dari tiga jalur pemuatan data yang TIDAK memanggil
+  // enrichApproveByPmlWithFotoBukti (dua jalur lain sudah memanggilnya).
+  // Sekarang applyLoadedData ikut memanggilnya juga supaya foto bukti selalu
+  // digabungkan ulang dari sumber terbaru, apa pun jalur pemuatan datanya.
+  const applyLoadedData = useCallback(async (payload, sourceLabel) => {
     const {
       data = [],
       lampiran = [],
@@ -62,12 +74,14 @@ export default function PortalAdministrasiSE2026() {
       dataPmlProgress: loadedDataPmlProgress = [],
     } = payload || {};
 
+    const enrichedApproveByPml = await enrichApproveByPmlWithFotoBukti(loadedApproveByPml || []);
+
     setPetugasData(data);
     setLampiranData(lampiran);
     setBappData(loadedBappData);
     setStatusSlsData(loadedStatusSls);
     setDataPerSlsData(loadedDataPerSls);
-    setApproveByPmlData(loadedApproveByPml);
+    setApproveByPmlData(enrichedApproveByPml);
     setDataPmlProgressData(loadedDataPmlProgress);
     setXlsxLoaded(Boolean(
       data.length || lampiran.length || loadedBappData.length ||
@@ -87,7 +101,7 @@ export default function PortalAdministrasiSE2026() {
       const response = await fetch("/api/data");
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const payload = await response.json();
-      applyLoadedData(payload);
+      await applyLoadedData(payload);
       setDataSyncedAt(payload.syncedAt || null);
       return true;
     } catch (err) {
