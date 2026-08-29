@@ -316,7 +316,7 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
                 Pilih PML atau PPL, lalu generate satu berkas pembayaran lengkap per orang. Pilihan tersedia untuk satu nama, beberapa nama melalui Excel, atau semua nama.
               </p>
               <p className="mt-3 text-xs font-bold text-slate-500">
-                Template: {gabunganRole === "PML" ? "BERKAS PEMBAYARAN PML.docx" : gabunganRole === "PPL" ? "BERKAS PEMBAYARAN PPL.docx" : "pilih role terlebih dahulu"}
+                Template: {gabunganRole === "PML" ? "BERKAS PEMBAYARAN TERMIN II PML (1).docx" : gabunganRole === "PPL" ? "BERKAS PEMBAYARAN PPL TERMIN II (1).docx" : "pilih role terlebih dahulu"}
               </p>
             </div>
 

@@ -33,7 +33,7 @@ export default function PortalAdministrasiSE2026() {
   const [approveByPmlData,   setApproveByPmlData]   = useState([]);
   const [xlsxLoaded,         setXlsxLoaded]         = useState(false);
   const [xlsxFileName,       setXlsxFileName]       = useState("data-petugas.xlsx");
-  const [googleSheetUrl,     setGoogleSheetUrl]     = useState("https://docs.google.com/spreadsheets/d/10jA_NOMNn5pBuy1OPrSdHstscRrUOUlEDElk-jOmXLQ/edit?gid=1095810027#gid=1095810027");
+  const [googleSheetUrl,     setGoogleSheetUrl]     = useState("https://docs.google.com/spreadsheets/d/1_tHblm6GA_oO_k2iI8VE14-NDsIt5Lx8t80BqWsS7Ls/edit?usp=sharing");
   const [googleSheetApiKey,  setGoogleSheetApiKey]  = useState("");
   const [googleSheetError,   setGoogleSheetError]   = useState(null);
   const [googleSheetLoading, setGoogleSheetLoading] = useState(false);

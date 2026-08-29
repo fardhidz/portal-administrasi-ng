@@ -36,7 +36,7 @@ import {
 // GOOGLE_SHEET_URL kalau suatu saat sheet-nya pindah/ganti tanpa
 // perlu ubah kode.
 const DEFAULT_GOOGLE_SHEET_URL =
-  "https://docs.google.com/spreadsheets/d/10jA_NOMNn5pBuy1OPrSdHstscRrUOUlEDElk-jOmXLQ/edit?gid=1095810027#gid=1095810027";
+  "https://docs.google.com/spreadsheets/d/1_tHblm6GA_oO_k2iI8VE14-NDsIt5Lx8t80BqWsS7Ls/edit?usp=sharing";
 
 function isAuthorized(req) {
   const configured = process.env.CRON_SECRET;
