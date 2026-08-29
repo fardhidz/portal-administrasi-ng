@@ -9,7 +9,18 @@ import { saveAs } from "file-saver";
 import { buildBastTemplateData } from "./bast";
 import { buildBappTemplateData, downloadMultipleAsZip, formatKodeNama, groupLampiranRows, sanitizeFileName } from "./docGenerators";
 import { cleanText, upperText } from "./helpers";
-import { createFotoBuktiImageModule, extractNomorPrefix, isAllowedStatusSls, isBappRowForRole, normalizeStatusSlsCode, normalizeStatusSlsLabel, prefetchFotoBuktiForTemplate, zipToDocxBlob } from "./parsers";
+import {
+  chunkFotoBuktiIntoRows,
+  collectFotoBuktiFromApproveRows,
+  createFotoBuktiImageModule,
+  extractNomorPrefix,
+  isAllowedStatusSls,
+  isBappRowForRole,
+  normalizeStatusSlsCode,
+  normalizeStatusSlsLabel,
+  prefetchFotoBuktiForTemplate,
+  zipToDocxBlob,
+} from "./parsers";
 
 // ─── BERKAS PEMBAYARAN PML/PPL ───────────────────────────────────────────────
 // Satu record menyatukan identitas dari sheet Pembayaran dengan semua baris
@@ -1120,6 +1131,8 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
   const summaryPersentase = hasDataPerSls
     ? dataPerSlsSummary.persentase
     : pembayaranRingkasan.persentase_pendataan;
+  const fotoBukti = collectFotoBuktiFromApproveRows(approveByPmlRows, role);
+  const fotoRows = chunkFotoBuktiIntoRows(fotoBukti, 3);
 
   // Variabel tanpa prefix dipertahankan untuk kompatibilitas dengan template lama.
   // Variabel berprefix memberi ruang bagi template gabungan saat ada nama tag yang
@@ -1227,6 +1240,11 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
     lampiran_peserta: lampiranTableRows,
     bapp_peserta: bapp.peserta || [],
     bast_peserta: bast.peserta || [],
+    foto: fotoBukti,
+    foto_bukti: fotoBukti,
+    jumlah_foto: fotoBukti.length,
+    jumlah_foto_bukti: fotoBukti.length,
+    foto_rows: fotoRows,
     tampil_surat_pernyataan: isPml,
     is_pml: isPml,
     is_ppl: !isPml,

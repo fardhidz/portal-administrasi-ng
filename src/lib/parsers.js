@@ -862,7 +862,7 @@ export function collectFotoBuktiFromApproveRows(approveRows = [], role = "PML") 
   const seen = new Set();
   const entries = [];
   for (const approveRow of approveRows || []) {
-    const urls = isPml ? approveRow?.foto_bukti_pml : approveRow?.foto_bukti_ppl;
+    const urls = isPml ? (approveRow?.foto_bukti_pml || approveRow?.foto_bukti || []) : (approveRow?.foto_bukti_ppl || approveRow?.foto_bukti || []);
     for (const url of urls || []) {
       const key = String(url ?? "").trim();
       if (!key || seen.has(key)) continue;
