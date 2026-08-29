@@ -540,35 +540,64 @@ export async function fetchFotoBuktiRowsFromDatabaseSls() {
 // sheet Approve by PML), sehingga hampir semua baris gagal cocok dan foto
 // selalu kosong walau datanya sebenarnya ada. Sekarang dicoba pasangan persis
 // dulu, lalu fallback ke pencocokan per-email saja.
+function normalizePhotoKey(value) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function mergePhotoArrays(...values) {
+  const merged = new Set();
+  for (const list of values) {
+    for (const url of list || []) {
+      const cleaned = String(url ?? "").trim();
+      if (cleaned) merged.add(cleaned);
+    }
+  }
+  return [...merged];
+}
+
 export function buildFotoBuktiMapByPmlPpl(fotoBuktiRows = []) {
   const pairMap = new Map();
   const byPplEmail = new Map();
   const byPmlEmail = new Map();
+  const byPplName = new Map();
+  const byPmlName = new Map();
 
   for (const row of fotoBuktiRows || []) {
-    const emailPml = upperText(row.email_pml);
-    const emailPpl = upperText(row.email_ppl);
-    if (!emailPml && !emailPpl) continue;
+    const emailPml = normalizePhotoKey(row.email_pml);
+    const emailPpl = normalizePhotoKey(row.email_ppl);
+    const namePml = normalizePhotoKey(row.nama_pml || row.nama_pengawas || row.nama || "");
+    const namePpl = normalizePhotoKey(row.nama_ppl || row.nama || "");
+    if (!emailPml && !emailPpl && !namePml && !namePpl) continue;
 
     const pairKey = `${emailPml}::${emailPpl}`;
     if (!pairMap.has(pairKey)) pairMap.set(pairKey, { fotoPml: new Set(), fotoPpl: new Set() });
     const pairEntry = pairMap.get(pairKey);
-    for (const url of row.foto_bukti_pml || []) pairEntry.fotoPml.add(url);
-    for (const url of row.foto_bukti_ppl || []) pairEntry.fotoPpl.add(url);
+    for (const url of row.foto_bukti_pml || row.foto_bukti || []) pairEntry.fotoPml.add(String(url).trim());
+    for (const url of row.foto_bukti_ppl || row.foto_bukti || []) pairEntry.fotoPpl.add(String(url).trim());
 
     if (emailPpl) {
       if (!byPplEmail.has(emailPpl)) byPplEmail.set(emailPpl, new Set());
       const entry = byPplEmail.get(emailPpl);
-      for (const url of row.foto_bukti_ppl || []) entry.add(url);
+      for (const url of row.foto_bukti_ppl || row.foto_bukti || []) entry.add(String(url).trim());
     }
     if (emailPml) {
       if (!byPmlEmail.has(emailPml)) byPmlEmail.set(emailPml, new Set());
       const entry = byPmlEmail.get(emailPml);
-      for (const url of row.foto_bukti_pml || []) entry.add(url);
+      for (const url of row.foto_bukti_pml || row.foto_bukti || []) entry.add(String(url).trim());
+    }
+    if (namePpl) {
+      if (!byPplName.has(namePpl)) byPplName.set(namePpl, new Set());
+      const entry = byPplName.get(namePpl);
+      for (const url of row.foto_bukti_ppl || row.foto_bukti || []) entry.add(String(url).trim());
+    }
+    if (namePml) {
+      if (!byPmlName.has(namePml)) byPmlName.set(namePml, new Set());
+      const entry = byPmlName.get(namePml);
+      for (const url of row.foto_bukti_pml || row.foto_bukti || []) entry.add(String(url).trim());
     }
   }
 
-  return { pairMap, byPplEmail, byPmlEmail };
+  return { pairMap, byPplEmail, byPmlEmail, byPplName, byPmlName };
 }
 
 export function mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows = [], fotoBuktiMap) {
@@ -576,25 +605,38 @@ export function mergeFotoBuktiIntoApproveByPmlRows(approveByPmlRows = [], fotoBu
     !fotoBuktiMap ||
     ((fotoBuktiMap.pairMap?.size || 0) === 0 &&
       (fotoBuktiMap.byPplEmail?.size || 0) === 0 &&
-      (fotoBuktiMap.byPmlEmail?.size || 0) === 0);
+      (fotoBuktiMap.byPmlEmail?.size || 0) === 0 &&
+      (fotoBuktiMap.byPplName?.size || 0) === 0 &&
+      (fotoBuktiMap.byPmlName?.size || 0) === 0);
   if (isEmptyMap) return approveByPmlRows;
 
   return (approveByPmlRows || []).map((row) => {
-    const emailPml = upperText(row.email_pml);
-    const emailPpl = upperText(row.email_ppl);
+    const emailPml = normalizePhotoKey(row.email_pml);
+    const emailPpl = normalizePhotoKey(row.email_ppl);
+    const namePml = normalizePhotoKey(row.nama_pml || row.nama_pengawas || row.nama || "");
+    const namePpl = normalizePhotoKey(row.nama_ppl || row.nama || "");
     const pairEntry = fotoBuktiMap.pairMap.get(`${emailPml}::${emailPpl}`);
 
-    // Pasangan persis dulu; kalau tidak ada, jatuhkan ke pencocokan per-email.
     const fotoPplSource =
-      pairEntry?.fotoPpl?.size ? pairEntry.fotoPpl : (emailPpl && fotoBuktiMap.byPplEmail.get(emailPpl)) || null;
+      pairEntry?.fotoPpl?.size ? pairEntry.fotoPpl
+      : (emailPpl && fotoBuktiMap.byPplEmail.get(emailPpl))
+      || (namePpl && fotoBuktiMap.byPplName.get(namePpl))
+      || null;
     const fotoPmlSource =
-      pairEntry?.fotoPml?.size ? pairEntry.fotoPml : (emailPml && fotoBuktiMap.byPmlEmail.get(emailPml)) || null;
+      pairEntry?.fotoPml?.size ? pairEntry.fotoPml
+      : (emailPml && fotoBuktiMap.byPmlEmail.get(emailPml))
+      || (namePml && fotoBuktiMap.byPmlName.get(namePml))
+      || null;
 
-    if (!fotoPplSource && !fotoPmlSource) return row;
+    const mergedPml = mergePhotoArrays(row.foto_bukti_pml || row.foto_bukti || [], fotoPmlSource || []);
+    const mergedPpl = mergePhotoArrays(row.foto_bukti_ppl || row.foto_bukti || [], fotoPplSource || []);
 
-    const mergedPml = new Set([...(row.foto_bukti_pml || []), ...(fotoPmlSource || [])]);
-    const mergedPpl = new Set([...(row.foto_bukti_ppl || []), ...(fotoPplSource || [])]);
-    return { ...row, foto_bukti_pml: [...mergedPml], foto_bukti_ppl: [...mergedPpl] };
+    const result = { ...row };
+    if (mergedPml.length > 0) result.foto_bukti_pml = mergedPml;
+    else if (row.foto_bukti) result.foto_bukti_pml = row.foto_bukti;
+    if (mergedPpl.length > 0) result.foto_bukti_ppl = mergedPpl;
+    else if (row.foto_bukti) result.foto_bukti_ppl = row.foto_bukti;
+    return result;
   });
 }
 
