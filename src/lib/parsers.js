@@ -469,7 +469,7 @@ export function normalizeApproveByPmlRow(row = {}) {
 // Email PML + Email PPL.
 export const FOTO_BUKTI_SPREADSHEET_ID = "1U694SejnIYezDRgy6Ao_1Moik4ckW7iMBWJeOmgpkcI";
 export const FOTO_BUKTI_SPREADSHEET_EXPORT_URL = `https://docs.google.com/spreadsheets/d/${FOTO_BUKTI_SPREADSHEET_ID}/export?format=xlsx`;
-export const FOTO_BUKTI_SHEET_NAME = "Submission-V2-Testing";
+export const FOTO_BUKTI_SHEET_NAME = "Submission-TerminII";
 
 // Cache supaya spreadsheet foto tidak di-fetch berulang kali dalam satu sesi.
 export let fotoBuktiDatabaseSlsCache = null;
