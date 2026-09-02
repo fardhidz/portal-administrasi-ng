@@ -298,9 +298,9 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
           if (!formData.tanggal_surat) throw new Error("Isi tanggal surat terlebih dahulu.");
           const selectedDate = new Date(formData.tanggal_surat);
           const minDate = new Date("2026-07-15T00:00:00");
-          const maxDate = new Date("2026-08-31T23:59:59");
+          const maxDate = new Date("2026-09-30T23:59:59");
           if (selectedDate < minDate || selectedDate > maxDate) {
-            throw new Error("Tanggal surat hanya boleh 15 Juli 2026 sampai 31 Agustus 2026.");
+            throw new Error("Tanggal surat hanya boleh 15 Juli 2026 sampai 30 September 2026.");
           }
         };
 
@@ -347,12 +347,12 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
                   <input
                     type="date"
                     min="2026-07-15"
-                    max="2026-08-31"
+                    max="2026-09-30"
                     className={inputCls}
                     value={formData.tanggal_surat || ""}
                     onChange={(e) => update("tanggal_surat", e.target.value)}
                   />
-                  <p className="mt-1 text-xs font-semibold text-slate-400">Rentang tanggal yang diizinkan: 15–31 Agustus 2026.</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-400">Rentang tanggal yang diizinkan: 15 Agustus – 30 September 2026.</p>
                 </div>
 
                 <div>
