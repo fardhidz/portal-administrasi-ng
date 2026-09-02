@@ -14,6 +14,8 @@ import {
   collectFotoBuktiFromApproveRows,
   createFotoBuktiImageModule,
   extractNomorPrefix,
+  fetchHalamanDepanMapByEmail,
+  findHalamanDepanUrl,
   isAllowedStatusSls,
   isBappRowForRole,
   normalizeStatusSlsCode,
@@ -938,7 +940,7 @@ export function prefixTemplateData(prefix, data = {}) {
   return prefixed;
 }
 
-export function buildBerkasPembayaranTemplateData(formValues, record, role, nikLookup) {
+export function buildBerkasPembayaranTemplateData(formValues, record, role, nikLookup, halamanDepanMap) {
   const isPml = upperText(role) === "PML";
   const lampiranRows = Array.isArray(record?.lampiranRows) ? record.lampiranRows : [];
   const pembayaranRows = Array.isArray(record?.pembayaranRows) ? record.pembayaranRows : [];
@@ -1127,6 +1129,10 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
     : pembayaranRingkasan.persentase_pendataan;
   const fotoBukti = collectFotoBuktiFromApproveRows(approveByPmlRows, role);
   const fotoRows = chunkFotoBuktiIntoRows(fotoBukti, 3);
+  // Foto halaman depan FASIH (tag {%halaman_depan}), khusus Berkas Pembayaran
+  // Termin II. Dicari dari sheet "Fasih-Cover" berdasarkan Email PML/PPL yang
+  // sedang diproses (email = variabel yang sama dipakai untuk bapp/bast di atas).
+  const halamanDepan = findHalamanDepanUrl(halamanDepanMap, email);
 
   // Variabel tanpa prefix dipertahankan untuk kompatibilitas dengan template lama.
   // Variabel berprefix memberi ruang bagi template gabungan saat ada nama tag yang
@@ -1239,6 +1245,7 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
     jumlah_foto: fotoBukti.length,
     jumlah_foto_bukti: fotoBukti.length,
     foto_rows: fotoRows,
+    halaman_depan: halamanDepan,
     tampil_surat_pernyataan: isPml,
     is_pml: isPml,
     is_ppl: !isPml,
@@ -1486,12 +1493,17 @@ export async function createBerkasPembayaranBlobFromTemplateBuffer(
   role,
   nikLookup
 ) {
+  // Peta Email -> foto halaman depan FASIH (sheet "Fasih-Cover"). Fetch
+  // di-cache di dalam parsers.js, jadi aman dipanggil per-record/per-batch.
+  const halamanDepanMap = await fetchHalamanDepanMapByEmail();
+
   // Bangun data sebelum membuat Docxtemplater agar URL foto bisa di-prefetch.
   const templateData = buildBerkasPembayaranTemplateData(
     formValues || {},
     record || {},
     role,
-    nikLookup
+    nikLookup,
+    halamanDepanMap
   );
 
   console.log("Generate berkas pembayaran:", {
@@ -1499,6 +1511,7 @@ export async function createBerkasPembayaranBlobFromTemplateBuffer(
     nama: templateData?.nama_petugas,
     jumlahFoto: templateData?.jumlah_foto,
     jumlahBarisFoto: templateData?.foto_rows?.length || 0,
+    halamanDepan: templateData?.halaman_depan ? "ada" : "kosong",
   });
 
   // FIX PPL:

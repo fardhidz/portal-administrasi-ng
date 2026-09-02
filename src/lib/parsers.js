@@ -681,6 +681,93 @@ export async function enrichApproveByPmlWithFotoBukti(approveByPmlRows = []) {
   }
 }
 
+// ─── FOTO HALAMAN DEPAN (SHEET "Fasih-Cover") ────────────────────────────────
+// Dipakai khusus untuk tag {%halaman_depan} pada template Berkas Pembayaran
+// Termin II (PML & PPL). Sumbernya spreadsheet yang sama dengan foto bukti
+// ("Database SLS [JANGAN DIUBAH]"), tapi tab berbeda: "Fasih-Cover", dengan
+// kolom Email dan "Foto Halaman Depan FASIH". Satu baris = satu email, jadi
+// pencocokan cukup lewat Email saja (tanpa perlu pasangan PML+PPL).
+export const HALAMAN_DEPAN_SHEET_NAME = "Fasih-Cover";
+
+// Cache supaya sheet Fasih-Cover tidak di-fetch berulang kali dalam satu sesi.
+export let halamanDepanDatabaseSlsCache = null;
+
+export function normalizeHalamanDepanRow(row = {}) {
+  const normalized = {};
+  Object.entries(row || {}).forEach(([key, value]) => {
+    const normalizedKey = String(key ?? "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ");
+    normalized[normalizedKey] = cleanDataPerSlsCell(value);
+  });
+  const get = (...keys) => {
+    for (const key of keys) {
+      const value = normalized[String(key ?? "").trim().toLowerCase().replace(/[_-]+/g, " ").replace(/\s+/g, " ")];
+      if (cleanDataPerSlsCell(value)) return cleanDataPerSlsCell(value);
+    }
+    return "";
+  };
+  return {
+    email: get("email", "e-mail"),
+    nama: get("nama"),
+    halaman_depan: get("foto halaman depan fasih", "foto halaman depan", "halaman depan", "halaman_depan"),
+  };
+}
+
+export async function fetchHalamanDepanRowsFromDatabaseSls() {
+  if (halamanDepanDatabaseSlsCache) return halamanDepanDatabaseSlsCache;
+
+  const response = await fetch(FOTO_BUKTI_SPREADSHEET_EXPORT_URL);
+  if (!response.ok) throw new Error(`Gagal memuat Database SLS: ${response.status} ${response.statusText}`);
+  const arrayBuffer = await response.arrayBuffer();
+  const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+  const sheetName = workbook.SheetNames.find(
+    (name) => String(name ?? "").trim().toLowerCase() === HALAMAN_DEPAN_SHEET_NAME.toLowerCase()
+  );
+  if (!sheetName) {
+    console.warn(`Sheet '${HALAMAN_DEPAN_SHEET_NAME}' tidak ditemukan di Database SLS. Sheet tersedia:`, workbook.SheetNames);
+    halamanDepanDatabaseSlsCache = [];
+    return halamanDepanDatabaseSlsCache;
+  }
+
+  const sheet = workbook.Sheets[sheetName];
+  const raw = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
+  const rows = raw.map(normalizeHalamanDepanRow).filter((row) => row.email && row.halaman_depan);
+
+  console.log(
+    `Fasih-Cover: ${raw.length} baris mentah, ${rows.length} baris punya Email + Foto Halaman Depan FASIH.`
+  );
+
+  halamanDepanDatabaseSlsCache = rows;
+  return rows;
+}
+
+// Map email (huruf besar) -> URL foto halaman depan. Bila ada email ganda,
+// baris yang lebih baru (submit paling akhir) menang karena diproses terakhir.
+export function buildHalamanDepanMapByEmail(halamanDepanRows = []) {
+  const map = new Map();
+  for (const row of halamanDepanRows || []) {
+    const emailKey = upperText(row?.email);
+    if (!emailKey || !row?.halaman_depan) continue;
+    map.set(emailKey, row.halaman_depan);
+  }
+  return map;
+}
+
+export async function fetchHalamanDepanMapByEmail() {
+  try {
+    const rows = await fetchHalamanDepanRowsFromDatabaseSls();
+    return buildHalamanDepanMapByEmail(rows);
+  } catch (err) {
+    console.warn("Gagal memuat foto halaman depan dari sheet Fasih-Cover:", err.message, err);
+    return new Map();
+  }
+}
+
+export function findHalamanDepanUrl(halamanDepanMap, email) {
+  if (!halamanDepanMap || !email) return "";
+  return halamanDepanMap.get(upperText(cleanText(email))) || "";
+}
+
 export function splitFotoBuktiUrls(value) {
   return String(value ?? "")
     .split(/[\n,;]+/)
@@ -812,6 +899,9 @@ export function collectFotoUrlsFromTemplateData(templateData = {}) {
     addUrl(item);
   }
 
+  // Foto halaman depan FASIH (tag {%halaman_depan}), satu foto per orang.
+  addUrl(templateData?.halaman_depan);
+
   // Struktur grid baru: 3 foto per baris.
   for (const row of templateData?.foto_rows || []) {
     addUrl(row?.foto1);
@@ -890,9 +980,14 @@ export function createFotoBuktiImageModule() {
       return base64ToArrayBuffer(FALLBACK_FOTO_BASE64);
     },
 
-    getSize: (img, tagValue) => {
+    getSize: (img, tagValue, tagName) => {
       const url = getFotoUrlFromTagValue(tagValue);
       if (!url) return [1, 1];
+
+      // {%halaman_depan} = satu foto penuh (screenshot halaman depan FASIH),
+      // dibuat lebih besar & proporsi potret dibanding foto1/2/3 yang harus
+      // muat tiga-tiganya dalam satu baris tabel.
+      if (tagName === "halaman_depan") return [180, 135];
 
       // Ukuran seragam agar tiga foto muat dan rapi dalam satu baris tabel Word.
       return [180, 135];
