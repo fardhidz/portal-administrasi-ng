@@ -349,10 +349,10 @@ export default function PortalAdministrasiSE2026() {
             <motion.div key="dashboard" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.4 }} className="px-5 py-10 lg:px-8">
               <div className="mx-auto max-w-7xl">
                 <div className="mb-10">
-                  <p className="text-sm font-black uppercase tracking-[0.25em] text-orange-600">Sensus Ekonomi 2026</p>
+                  <p className="text-sm font-black uppercase tracking-[0.25em] text-orange-600">BPS Kota Jakarta Timur</p>
                   <h1 className="mt-3 text-5xl font-black tracking-[-0.04em] text-slate-950 lg:text-6xl">
                     Portal Administrasi<br />
-                    <span className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 bg-clip-text text-transparent">Pelatihan Petugas</span>
+                    <span className="bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 bg-clip-text text-transparent">Sensus Ekonomi 2026</span>
                   </h1>
                   <p className="mt-5 max-w-2xl text-base leading-8 text-slate-600">Terbitkan dokumen administrasi secara cepat dan terstandar.</p>
                 </div>
