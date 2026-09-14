@@ -527,7 +527,6 @@ export function applyApproveByPmlToWorkload(workload = {}, approveRows = [], rol
 
     return {
       ...row,
-      realisasi_jumlah: approvedFormatted,
       realisasi_dengan_tidak_ditemukan_jumlah: approvedFormatted,
       jumlah_approve_pml: approvedFormatted,
       jumlah_approve_pml_raw: approvedRaw,
