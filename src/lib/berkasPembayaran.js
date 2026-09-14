@@ -518,12 +518,19 @@ export function applyApproveByPmlToWorkload(workload = {}, approveRows = [], rol
   const rows = (workload?.rows || []).map((row) => {
     const matchingApproveRows = findApproveRowsForWorkloadRow(row, approveRows);
     const approved = sumJumlahApprovePml(matchingApproveRows);
+
     const approvedRaw = approved.raw == null ? 0 : approved.raw;
     const approvedFormatted = approved.raw == null ? "0" : approved.formatted;
 
     const target = parseDataPerSlsNumber(row?.target_jumlah);
-    const percentageRaw = target && target > 0 ? (realisasiJumlahRaw / target) * 100 : null;
-    const percentage = percentageRaw == null ? "" : formatPercentageNumber(percentageRaw, 2);
+
+    const realisasiJumlahRaw =
+      parseDataPerSlsNumber(row?.realisasi_jumlah) || 0;
+
+    const percentageRaw =
+      target && target > 0
+        ? (realisasiJumlahRaw / target) * 100
+        : null;
 
     return {
       ...row,
@@ -532,8 +539,9 @@ export function applyApproveByPmlToWorkload(workload = {}, approveRows = [], rol
       jumlah_approve_pml_raw: approvedRaw,
       jumlah_baris_approve_pml: approved.count,
       approve_pml_ditemukan: approved.raw != null,
-      persentase: percentage,
-      persentase_dengan_tidak_ditemukan: percentage,
+      persentase: percentageRaw == null ? "" : formatPercentageNumber(percentageRaw, 2),
+      persentase_dengan_tidak_ditemukan:
+        percentageRaw == null ? "" : formatPercentageNumber(percentageRaw, 2),
       persentase_raw: percentageRaw == null ? "" : percentageRaw,
       sumber_realisasi: "Approve by PML",
     };
