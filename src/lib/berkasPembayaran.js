@@ -604,11 +604,12 @@ export function buildDataPerSlsWorkloadRows(sourceRows = [], role = "PML") {
       row?.target_keluarga,
       row?.target_usaha
     );
-    const realisasiJumlah = getDataPerSlsValueOrSum(
-      row?.realisasi_dengan_tidak_ditemukan_jumlah,
-      row?.realisasi_dengan_tidak_ditemukan_keluarga,
-      row?.realisasi_dengan_tidak_ditemukan_usaha
-    );
+    // SESUDAH
+    const realisasiKeluargaNum = parseDataPerSlsNumber(row?.realisasi_dengan_tidak_ditemukan_keluarga);
+    const realisasiUsahaNum = parseDataPerSlsNumber(row?.realisasi_dengan_tidak_ditemukan_usaha);
+    const realisasiJumlah = (realisasiKeluargaNum == null && realisasiUsahaNum == null)
+      ? ""
+      : formatDataPerSlsAggregate((realisasiKeluargaNum || 0) + (realisasiUsahaNum || 0));
 
     const targetNumber = parseDataPerSlsNumber(targetJumlah);
     const realisasiNumber = parseDataPerSlsNumber(realisasiJumlah);
@@ -1554,7 +1555,7 @@ export async function generateSingleBerkasPembayaran(templateUrl, formValues, re
 
 export const BERKAS_PEMBAYARAN_ZIP_BATCH_SIZE = 100;
 
-export async function generateBerkasPembayaran(templateUrl, formValues, records, role, nikLookup, onProgress) {
+export async function generateBerkasPembayaran(templateUrl, formValues, records, role, nikLookup, onProgress, zipLabel = "") {
   const entries = Array.isArray(records) ? records.filter(Boolean) : [];
   if (entries.length === 0) throw new Error(`Tidak ada data berkas pembayaran ${role}.`);
 
@@ -1595,9 +1596,10 @@ export async function generateBerkasPembayaran(templateUrl, formValues, records,
     }
 
     const batchSuffix = totalBatches > 1 ? ` - Bagian ${batchIndex + 1} dari ${totalBatches}` : "";
+    const labelSuffix = zipLabel ? ` - ${zipLabel}` : "";
     await downloadMultipleAsZip(
       files,
-      `BERKAS PEMBAYARAN ${role} ${cleanText(formValues?.tanggal_surat || "SE2026")}${batchSuffix}.zip`
+      `BERKAS PEMBAYARAN ${role} ${cleanText(formValues?.tanggal_surat || "SE2026")}${labelSuffix}${batchSuffix}.zip`
     );
   }
 }

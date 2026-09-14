@@ -36,7 +36,67 @@ export const BAST_PML_TEMPLATE_URL = "/templates/BAST PML.docx";
 export const BAST_PPL_TEMPLATE_URL = "/templates/BAST PPL.docx";
 export const BERKAS_PEMBAYARAN_PML_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN TERMIN II PML (1).docx";
 export const BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN PPL TERMIN II (1).docx";
+
 export const SURAT_KEPALA_TEMPLATE_URL = "/templates/SURAT PERNYATAAN KEPALA BPS.docx";
+
+
+// ─── TEMPLATE PER DURASI — Gabungan Administrasi Pembayaran (khusus PPL) ───
+// Sebagian PPL dibayar dengan durasi kontrak yang beda (1 bulan / 1,5 bulan /
+// 2 bulan), jadi butuh file .docx yang berbeda juga. Orangnya dicocokkan
+// lewat EMAIL (daftar di GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI di bawah).
+//
+// ⚠️ FILE-NYA BELUM DIUPLOAD. Kalau sudah siap file-nya:
+// 1. Upload/taruh file .docx ke folder `public/templates/`.
+// 2. Ganti isi 3 baris URL di bawah ini (BERKAS_PEMBAYARAN_PPL_2_BULAN_...
+//    dst) supaya PERSIS SAMA dengan nama file yang diupload — termasuk
+//    spasi, huruf besar/kecil, dan tanda baca. Formatnya:
+//    "/templates/NAMA FILE PERSIS.docx".
+// Sebelum diganti, kalau salah satu email di bawah kebetulan dipilih untuk
+// digenerate, akan muncul error "Gagal memuat template..." — itu tandanya
+// filenya belum ada/namanya belum cocok, bukan bug.
+export const BERKAS_PEMBAYARAN_PPL_2_BULAN_TEMPLATE_URL   = "/templates/BERKAS PEMBAYARAN PPL TERMIN II - 2 BULAN (1).docx";
+export const BERKAS_PEMBAYARAN_PPL_1_5_BULAN_TEMPLATE_URL = "/templates/BERKAS PEMBAYARAN PPL TERMIN II - 1,5 BULAN (1).docx";
+export const BERKAS_PEMBAYARAN_PPL_1_BULAN_TEMPLATE_URL   = "/templates/BERKAS PEMBAYARAN PPL TERMIN II - 1 BULAN (1).docx";
+
+// Peta kunci durasi -> URL template. Kalau nanti ada durasi baru lagi
+// (mis. "3 BULAN"), tinggal tambah baris URL di atas + satu baris di sini +
+// satu key baru di GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI di bawah.
+export const GABUNGAN_PEMBAYARAN_PPL_DURASI_TEMPLATE_URL = {
+  "2_BULAN": BERKAS_PEMBAYARAN_PPL_2_BULAN_TEMPLATE_URL,
+  "1_5_BULAN": BERKAS_PEMBAYARAN_PPL_1_5_BULAN_TEMPLATE_URL,
+  "1_BULAN": BERKAS_PEMBAYARAN_PPL_1_BULAN_TEMPLATE_URL,
+};
+
+// Daftar email per durasi. Huruf besar/kecil bebas (dicocokkan otomatis).
+// Email yang TIDAK ada di daftar manapun tetap pakai template PPL default
+// (BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL di atas).
+export const GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI = {
+  "2_BULAN": [
+    "aqellaprametaps@gmail.com",
+    "sistantopurnomo@gmail.com",
+    "armildasatriyaardiyanti@gmail.com",
+    "adr.andara16@gmail.com",
+    "nurainine80@gmail.com",
+    "aldinurcajyo4@gmail.com",
+    "novitatiolinas27@gmail.com",
+    "Mulyadi.silent@gmail.com",
+    "azzahranurzelika27@gmail.com",
+    "ariakbarmudzakir@gmail.com",
+    "Mboot13@gmail.com",
+    "mooguumooguu02@gmail.com",
+    "mamanikivia@gmail.com",
+    "atikalisati@gmail.com",
+    "riaaqi@gmail.com",
+    "Nanygeulies@gmail.com",
+  ],
+  "1_5_BULAN": [
+    "tyaarnia15@gmail.com",
+    "yasnirohanalbs@gmail.com",
+  ],
+  "1_BULAN": [
+    "salwadnsyh@gmail.com",
+  ],
+};
 
 // ─── EXPORT EXCEL (kop surat, per halaman → per sheet) ─────────────────────
 // Word tidak punya "jumlah baris per halaman" yang eksplisit (auto-flow sesuai

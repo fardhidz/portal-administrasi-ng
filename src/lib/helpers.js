@@ -78,6 +78,21 @@ export function uniqueSorted(values) {
   );
 }
 
+// Membalik peta { durasiKey: [email, ...] } menjadi Map EMAIL(besar) -> durasiKey,
+// supaya gampang dicek satu-satu saat generate. Dipakai fitur Gabungan
+// Administrasi Pembayaran (lihat GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI di
+// src/data/templates.js).
+export function buildEmailDurasiLookup(emailDurasiMap = {}) {
+  const map = new Map();
+  Object.entries(emailDurasiMap).forEach(([durasiKey, emails]) => {
+    (emails || []).forEach((email) => {
+      const emailClean = cleanText(email);
+      if (emailClean) map.set(upperText(emailClean), durasiKey);
+    });
+  });
+  return map;
+}
+
 export function formatTanggalIndonesia(dateStr) {
   if (!dateStr) return "";
   const d = new Date(dateStr);

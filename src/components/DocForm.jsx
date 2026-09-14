@@ -10,10 +10,10 @@ import { generateBast, generateSingleBast } from "../lib/bast";
 import { buildBerkasPembayaranRecords, generateBerkasPembayaran, generateSingleBerkasPembayaran } from "../lib/berkasPembayaran";
 import { generateBapp, generateLampiran, generateSingleBapp, generateSingleLampiran, generateSingleSuratPernyataanPenyelesaianLapangan, generateSuratPernyataanPenyelesaianLapangan } from "../lib/docGenerators";
 import { FilterPesertaHotelGelombangPanel, FilterPesertaPanel, GenerateDocxButton, SelectionUploadPanel } from "./FormPanels";
-import { buildEmailOnlySelectionKeySet, buildSelectionKeySet, cleanText, normalizeJamIndonesia, rowMatchesSelection, rowMatchesSelectionByEmail, uniqueSorted, upperText } from "../lib/helpers";
+import { buildEmailDurasiLookup, buildEmailOnlySelectionKeySet, buildSelectionKeySet, cleanText, normalizeJamIndonesia, rowMatchesSelection, rowMatchesSelectionByEmail, uniqueSorted, upperText } from "../lib/helpers";
 import { getBappIdentityKey, isBappRowForRole } from "../lib/parsers";
 import { buildSuratKepalaRows, generateSuratKepala } from "../lib/suratKepala";
-import { BAPP_PML_TEMPLATE_URL, BAPP_PPL_TEMPLATE_URL, BAST_PML_TEMPLATE_URL, BAST_PPL_TEMPLATE_URL, BERKAS_PEMBAYARAN_PML_TEMPLATE_URL, BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL, DAFTAR_HADIR_GROUPS, LAMPIRAN_PML_TEMPLATE_URL, LAMPIRAN_PPL_TEMPLATE_URL, SURAT_KEPALA_TEMPLATE_URL, SURAT_PERNYATAAN_PENYELESAIAN_LAPANGAN_TEMPLATE_URL } from "../data/templates";
+import { BAPP_PML_TEMPLATE_URL, BAPP_PPL_TEMPLATE_URL, BAST_PML_TEMPLATE_URL, BAST_PPL_TEMPLATE_URL, BERKAS_PEMBAYARAN_PML_TEMPLATE_URL, BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL, DAFTAR_HADIR_GROUPS, GABUNGAN_PEMBAYARAN_PPL_DURASI_TEMPLATE_URL, GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI, LAMPIRAN_PML_TEMPLATE_URL, LAMPIRAN_PPL_TEMPLATE_URL, SURAT_KEPALA_TEMPLATE_URL, SURAT_PERNYATAAN_PENYELESAIAN_LAPANGAN_TEMPLATE_URL } from "../data/templates";
 
 // ─── DOC FORM ─────────────────────────────────────────────────────────────────
 
@@ -308,6 +308,37 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
           ? BERKAS_PEMBAYARAN_PML_TEMPLATE_URL
           : BERKAS_PEMBAYARAN_PPL_TEMPLATE_URL;
 
+        // Sebagian PPL dibayar dengan durasi kontrak berbeda (1 / 1,5 / 2 bulan)
+        // sehingga pakai template .docx yang berbeda. Daftar emailnya diatur di
+        // GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI (src/data/templates.js). PML
+        // tidak punya pembedaan ini, selalu pakai template biasa.
+        const gabunganDurasiLookup = React.useMemo(
+          () => buildEmailDurasiLookup(GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI),
+          []
+        );
+
+        const getTemplateUrlForEmail = (email) => {
+          if (gabunganRole !== "PPL") return getTemplateUrl();
+          const durasiKey = gabunganDurasiLookup.get(upperText(cleanText(email)));
+          return (durasiKey && GABUNGAN_PEMBAYARAN_PPL_DURASI_TEMPLATE_URL[durasiKey]) || getTemplateUrl();
+        };
+
+        // Kelompokkan records berdasarkan template yang bakal dipakai (durasi),
+        // supaya tiap kelompok bisa di-generate/di-zip dengan template & nama
+        // masing-masing tanpa mencampur template dalam satu batch.
+        const groupRecordsByTemplate = (records) => {
+          const groups = new Map(); // templateUrl -> { templateUrl, durasiKey, records: [] }
+          for (const record of records) {
+            const durasiKey = gabunganRole === "PPL"
+              ? (gabunganDurasiLookup.get(upperText(cleanText(record.email))) || "")
+              : "";
+            const templateUrl = getTemplateUrlForEmail(record.email);
+            if (!groups.has(templateUrl)) groups.set(templateUrl, { templateUrl, durasiKey, records: [] });
+            groups.get(templateUrl).records.push(record);
+          }
+          return [...groups.values()];
+        };
+
         return (
           <div className="space-y-5">
             <div className="rounded-3xl border border-orange-100 bg-orange-50/70 p-5">
@@ -316,7 +347,7 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
                 Pilih PML atau PPL, lalu generate satu berkas pembayaran lengkap per orang. Pilihan tersedia untuk satu nama, beberapa nama melalui Excel, atau semua nama.
               </p>
               <p className="mt-3 text-xs font-bold text-slate-500">
-                Template: {gabunganRole === "PML" ? "BERKAS PEMBAYARAN TERMIN II PML (1).docx" : gabunganRole === "PPL" ? "BERKAS PEMBAYARAN PPL TERMIN II (1).docx" : "pilih role terlebih dahulu"}
+                Template: {gabunganRole === "PML" ? "BERKAS PEMBAYARAN TERMIN II PML (1).docx" : gabunganRole === "PPL" ? "BERKAS PEMBAYARAN PPL TERMIN II (1).docx (default; sebagian email pakai template durasi khusus — lihat GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI di src/data/templates.js)" : "pilih role terlebih dahulu"}
               </p>
             </div>
 
@@ -392,7 +423,7 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
                       setGabunganGenerating(true);
                       setGabunganProgressText("Membuat satu berkas pembayaran...");
                       await generateSingleBerkasPembayaran(
-                        getTemplateUrl(), formData, chosen, gabunganRole, nikLookup
+                        getTemplateUrlForEmail(chosen.email), formData, chosen, gabunganRole, nikLookup
                       );
                     } catch (err) { alert(err.message || err); }
                     finally { setGabunganGenerating(false); setGabunganProgressText(""); }
@@ -412,10 +443,21 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
                       if (matchedRecords.length === 0) throw new Error("Tidak ada data yang cocok dengan file Excel.");
                       setGabunganGenerating(true);
                       setGabunganProgressText(`Menyiapkan ${matchedRecords.length} berkas pembayaran...`);
-                      await generateBerkasPembayaran(
-                        getTemplateUrl(), formData, matchedRecords, gabunganRole, nikLookup,
-                        ({ batchIndex, totalBatches }) => setGabunganProgressText(`Membuat batch ${batchIndex} dari ${totalBatches}...`)
-                      );
+                      // Untuk PPL, email yang masuk daftar durasi khusus (lihat
+                      // GABUNGAN_PEMBAYARAN_PPL_EMAIL_DURASI) dipisah kelompoknya
+                      // supaya tiap kelompok dibuat dengan template durasinya sendiri.
+                      const templateGroups = groupRecordsByTemplate(matchedRecords);
+                      for (let i = 0; i < templateGroups.length; i++) {
+                        const { templateUrl, durasiKey, records: groupRecords } = templateGroups[i];
+                        const label = durasiKey ? durasiKey.replace(/_/g, " ").toLowerCase() : "default";
+                        await generateBerkasPembayaran(
+                          templateUrl, formData, groupRecords, gabunganRole, nikLookup,
+                          ({ batchIndex, totalBatches }) => setGabunganProgressText(
+                            `Kelompok ${i + 1} dari ${templateGroups.length} (${label}) — batch ${batchIndex} dari ${totalBatches}...`
+                          ),
+                          durasiKey ? label : ""
+                        );
+                      }
                     } catch (err) { alert(err.message || err); }
                     finally { setGabunganGenerating(false); setGabunganProgressText(""); }
                   }} disabled={berkasRecords.length === 0 || gabunganGenerating || gabunganSelectionRows.length === 0}
@@ -429,10 +471,18 @@ const [gabunganSelectionRows, setGabunganSelectionRows] = useState([]);
                       if (berkasRecords.length === 0) throw new Error(`Tidak ada data ${gabunganRole}.`);
                       setGabunganGenerating(true);
                       setGabunganProgressText("Mempersiapkan semua berkas pembayaran...");
-                      await generateBerkasPembayaran(
-                        getTemplateUrl(), formData, berkasRecords, gabunganRole, nikLookup,
-                        ({ batchIndex, totalBatches }) => setGabunganProgressText(`Membuat batch ${batchIndex} dari ${totalBatches}...`)
-                      );
+                      const templateGroups = groupRecordsByTemplate(berkasRecords);
+                      for (let i = 0; i < templateGroups.length; i++) {
+                        const { templateUrl, durasiKey, records: groupRecords } = templateGroups[i];
+                        const label = durasiKey ? durasiKey.replace(/_/g, " ").toLowerCase() : "default";
+                        await generateBerkasPembayaran(
+                          templateUrl, formData, groupRecords, gabunganRole, nikLookup,
+                          ({ batchIndex, totalBatches }) => setGabunganProgressText(
+                            `Kelompok ${i + 1} dari ${templateGroups.length} (${label}) — batch ${batchIndex} dari ${totalBatches}...`
+                          ),
+                          durasiKey ? label : ""
+                        );
+                      }
                     } catch (err) { alert(err.message || err); }
                     finally { setGabunganGenerating(false); setGabunganProgressText(""); }
                   }} disabled={berkasRecords.length === 0 || gabunganGenerating}
