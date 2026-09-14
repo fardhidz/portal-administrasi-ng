@@ -522,7 +522,7 @@ export function applyApproveByPmlToWorkload(workload = {}, approveRows = [], rol
     const approvedFormatted = approved.raw == null ? "0" : approved.formatted;
 
     const target = parseDataPerSlsNumber(row?.target_jumlah);
-    const percentageRaw = target && target > 0 ? (approvedRaw / target) * 100 : null;
+    const percentageRaw = target && target > 0 ? (realisasiJumlahRaw / target) * 100 : null;
     const percentage = percentageRaw == null ? "" : formatPercentageNumber(percentageRaw, 2);
 
     return {
