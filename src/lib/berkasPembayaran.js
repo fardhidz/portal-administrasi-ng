@@ -801,6 +801,7 @@ export function buildBerkasLampiranTableRows(lampiranRows = [], role = "PML", pe
     const jumlah = Number(row?.jumlah || 0);
     const jumlah40 = Math.ceil(jumlah * 0.4);
     const jumlah60 = jumlah - jumlah40;
+    const jumlah50 = Math.ceil(jumlah * 0.5);
     const namaPml = cleanText(row?.nama_pml || "");
     const namaPpl = cleanText(row?.nama_ppl || "");
 
@@ -850,6 +851,7 @@ export function buildBerkasLampiranTableRows(lampiranRows = [], role = "PML", pe
       jumlah_60: jumlah60,
       sls_total: jumlah,
       sls_40: jumlah40,
+      sls_50: jumlah50,
       sls_60: jumlah60,
 
       nomor_spk: nomorKontrakBaris,
