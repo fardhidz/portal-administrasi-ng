@@ -511,7 +511,7 @@ export function findApproveRowsForWorkloadRow(workloadRow = {}, approveRows = []
 }
 
 export function applyApproveByPmlToWorkload(workload = {}, approveRows = [], role = "PML") {
-  if (upperText(role) !== "PML" || !Array.isArray(approveRows) || approveRows.length === 0) {
+  if (!Array.isArray(approveRows) || approveRows.length === 0) {
     return workload;
   }
 
@@ -976,11 +976,7 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
     statusSlsRows
   );
   const bebanKerjaBase = buildDataPerSlsWorkloadRows(dataPerSlsRows, role);
-  const bebanKerja = applyApproveByPmlToWorkload(
-    bebanKerjaBase,
-    approveByPmlRows,
-    role
-  );
+  const bebanKerja = applyApproveByPmlToWorkload(bebanKerjaBase, approveByPmlRows, role);
 
   const normalizeMatchKey = (value) => upperText(value).replace(/^@/, "").replace(/\s+/g, " ");
   const emailLocalPart = (value) => {
@@ -1004,20 +1000,21 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
         })
       : dataPerSlsRows;
 
-    const matchedApproveRows = isPml
-      ? approveByPmlRows.filter((approveRow) => approveRowMatchesPpl(approveRow, tableRow))
-      : [];
+    // SESUDAH
+    const matchedApproveRows = approveByPmlRows.filter((approveRow) =>
+      approveRowMatchesPpl(approveRow, tableRow)
+    );
 
     if (matchedSourceRows.length === 0 && matchedApproveRows.length === 0) return tableRow;
 
     const pplWorkloadBase = buildDataPerSlsWorkloadRows(matchedSourceRows, "PPL");
-    const pplWorkload = isPml
-      ? applyApproveByPmlToWorkload(pplWorkloadBase, matchedApproveRows, "PML")
+    const pplWorkload = matchedApproveRows.length > 0
+      ? applyApproveByPmlToWorkload(pplWorkloadBase, matchedApproveRows, role)
       : pplWorkloadBase;
     const total = pplWorkload.total || {};
     const approveTotal = sumJumlahApprovePml(matchedApproveRows);
     const targetForPercentage = parseDataPerSlsNumber(total.target_jumlah || tableRow?.jumlah_pre || tableRow?.prelist_total);
-    const useApproveSource = isPml && matchedApproveRows.length > 0;
+    const useApproveSource = matchedApproveRows.length > 0;
     const approveValueRaw = useApproveSource
       ? (approveTotal.raw == null ? 0 : approveTotal.raw)
       : null;
@@ -1231,11 +1228,11 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
     total_realisasi_keluarga: bebanKerja.total.realisasi_keluarga,
     total_realisasi_usaha: bebanKerja.total.realisasi_usaha,
     total_realisasi_jumlah: bebanKerja.total.realisasi_jumlah,
-    jumlah_approve_pml: isPml ? bebanKerja.total.realisasi_jumlah : "",
-    total_jumlah_approve_pml: isPml ? bebanKerja.total.realisasi_jumlah : "",
+    jumlah_approve_pml: bebanKerja.total.realisasi_jumlah,
+    total_jumlah_approve_pml: bebanKerja.total.realisasi_jumlah,
     total_persentase_data_per_sls: bebanKerja.total.persentase,
     keterangan_pembayaran_data_per_sls: "",
-    sumber_realisasi_pml: isPml && approveByPmlRows.length > 0 ? "Approve by PML" : "Data per SLS",
+    sumber_realisasi_pml: approveByPmlRows.length > 0 ? "Approve by PML" : "Data per SLS",
     jumlah_baris_approve_by_pml: approveByPmlRows.length,
 
     // Seluruh alias loop tabel memakai struktur sheet Lampiran. Kolom progres pada
