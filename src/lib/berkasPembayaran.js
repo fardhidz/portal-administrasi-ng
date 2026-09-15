@@ -556,11 +556,17 @@ export function applyApproveByPmlToWorkload(workload = {}, approveRows = [], rol
     (sum, row) => sum + (parseDataPerSlsNumber(row?.realisasi_jumlah) || 0),
     0
   );
-  // Total PML harus sama persis dengan penjumlahan seluruh kolom
-  // "Jumlah Approve PML" pada record PML, walaupun ada kode SLS yang tidak cocok.
+
+  // FIX: total realisasi PML/PPL harus mengikuti sheet Approve by PML, bukan
+  // sum mentah Data per SLS. directApproveTotal sudah menjumlahkan seluruh
+  // kolom "Jumlah Approve PML" milik record ini (lihat sumJumlahApprovePml di
+  // atas), jadi itu yang jadi sumber utama {realisasi_total} & {persentase_pendataan}.
+  // Fallback ke realisasiJumlahDariBarisRaw hanya dipakai kalau sheet Approve
+  // by PML memang tidak punya baris yang cocok sama sekali untuk record ini.
   const directApproveTotal = sumJumlahApprovePml(approveRows);
-  // baris ~552–558, ganti jadi:
-  const realisasiJumlahRaw = realisasiJumlahDariBarisRaw; // selalu dari sum Keluarga+Usaha per baris
+  const realisasiJumlahRaw = directApproveTotal.raw != null
+    ? directApproveTotal.raw
+    : realisasiJumlahDariBarisRaw;
   const percentageRaw = targetJumlahRaw > 0 ? (realisasiJumlahRaw / targetJumlahRaw) * 100 : null;
 
   const total = {
