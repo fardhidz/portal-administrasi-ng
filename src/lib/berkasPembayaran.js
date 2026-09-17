@@ -912,6 +912,10 @@ export function buildPembayaranTableRow(row = {}, index = 0) {
   const persentasePrelist = cleanText(row?.persentase_prelist || row?.persentase_pendataan || "");
   const nomorSpk = cleanText(row?.nomor_spk || row?.nomor_kontrak || "");
 
+   // TAMBAHAN: hitung 50% dari sls_total
+  const slsTotalNum = parseDataPerSlsNumber(row?.sls_total);
+  const sls50 = slsTotalNum != null ? Math.ceil(slsTotalNum * 0.5) : "";
+
   return {
     no: index + 1,
     nama: namaPpl || cleanText(row?.nama || ""),
@@ -933,6 +937,7 @@ export function buildPembayaranTableRow(row = {}, index = 0) {
     sls_40: cleanText(row?.sls_40 || ""),
     sls_60: cleanText(row?.sls_60 || ""),
     sls_ongoing: slsOngoing,
+    sls_50: sls50,    
     sls_selesai_sedang_dikerjakan: slsOngoing,
     persentase_sls: cleanText(row?.persentase_sls || ""),
     tanggal_screenshot: cleanText(row?.tanggal_screenshot || ""),
@@ -1177,6 +1182,7 @@ export function buildBerkasPembayaranTemplateData(formValues, record, role, nikL
     sls_total: pembayaranRingkasan.sls_total,
     sls_40: pembayaranRingkasan.sls_40,
     sls_60: pembayaranRingkasan.sls_60,
+    sls_50: pembayaranRingkasan.sls_50,
     sls_ongoing: pembayaranRingkasan.sls_ongoing,
     sls_selesai_sedang_dikerjakan: pembayaranRingkasan.sls_ongoing,
     persentase_sls: pembayaranRingkasan.persentase_sls,
