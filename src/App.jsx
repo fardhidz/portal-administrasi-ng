@@ -8,13 +8,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, CheckCircle, FileText, LayoutDashboard, Menu, Printer, X } from "lucide-react";
 
 import { DocForm } from "./components/DocForm";
-import { generateDaftarHadir, generateDaftarHadirXlsx, generateLampiran, generatePengeluaranRiil, generatePengeluaranRiilXlsx, generateSingleLampiran, generateSpj, generateSpjXlsx } from "./lib/docGenerators";
+import { generateDaftarHadir, generateDaftarHadirXlsx, generateLampiran, generatePengeluaranRiil, generatePengeluaranRiilXlsx, generateSingleLampiran, generateSpd, generateSpj, generateSpjXlsx, generateSuratPernyataanKendaraan, generateSuratTugas, generateTandaTerimaSmart } from "./lib/docGenerators";
 import { DocPreview } from "./components/DocPreview";
 import { DOC_TYPES } from "./data/docTypes";
 import { DocCard, GenerateDocxButton, GoogleSheetCard, StatCard, XlsxUploadCard } from "./components/FormPanels";
 import { cleanText, upperText } from "./lib/helpers";
 import { enrichApproveByPmlWithFotoBukti, loadGoogleSheet, normalizeGoogleSheetUrl, parseApproveByPmlData, parseBappData, parseDataPerSlsData, parseDataPmlProgressData, parseLampiranXlsxData, parseStatusSlsData, parseXlsxData } from "./lib/parsers";
-import { DAFTAR_HADIR_TEMPLATE_URL, LAMPIRAN_PML_TEMPLATE_URL, LAMPIRAN_PPL_TEMPLATE_URL, PENGELUARAN_RIIL_TEMPLATE_URL, SPJ_TEMPLATE_URL } from "./data/templates";
+import { DAFTAR_HADIR_TEMPLATE_URL, LAMPIRAN_PML_TEMPLATE_URL, LAMPIRAN_PPL_TEMPLATE_URL, PENGELUARAN_RIIL_TEMPLATE_URL, SPD_LAMPIRAN_TEMPLATE_URL, SPD_TEMPLATE_URL, SPJ_TEMPLATE_URL, SURAT_PERNYATAAN_KENDARAAN_TEMPLATE_URL, SURAT_TUGAS_TEMPLATE_URL } from "./data/templates";
 
 // ─── MAIN APP ─────────────────────────────────────────────────────────────────
 
@@ -417,6 +417,18 @@ export default function PortalAdministrasiSE2026() {
                     <button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-2xl border border-orange-200 bg-white px-5 py-2.5 text-sm font-black text-orange-600 shadow-sm transition hover:-translate-y-0.5 hover:bg-orange-50">
                       <Printer size={16} /> Cetak
                     </button>
+                    {selectedDoc?.id === "tanda-terima" && (
+                      <GenerateDocxButton label="Unduh Word" onGenerate={() => generateTandaTerimaSmart(previewData.formValues, previewData.peserta, previewData.tandaTerimaType)} />
+                    )}
+                    {selectedDoc?.id === "surat-pernyataan-kendaraan" && (
+                      <GenerateDocxButton label="Unduh Word" onGenerate={() => generateSuratPernyataanKendaraan(SURAT_PERNYATAAN_KENDARAAN_TEMPLATE_URL, previewData.formValues, previewData.peserta)} />
+                    )}
+                    {selectedDoc?.id === "spd" && (
+                      <GenerateDocxButton label="Unduh Word (SPD + Lampiran)" onGenerate={() => generateSpd(SPD_TEMPLATE_URL, SPD_LAMPIRAN_TEMPLATE_URL, previewData.formValues || previewData, previewData.peserta)} />
+                    )}
+                    {selectedDoc?.id === "surat-tugas" && (
+                      <GenerateDocxButton label="Unduh Word" onGenerate={() => generateSuratTugas(SURAT_TUGAS_TEMPLATE_URL, previewData.formValues, previewData.peserta)} />
+                    )}
                     {selectedDoc?.id === "daftar-hadir" && (
                       <div className="flex flex-col gap-1 sm:flex-row sm:items-center">
                         <GenerateDocxButton label="Unduh Word" onGenerate={() => generateDaftarHadir(DAFTAR_HADIR_TEMPLATE_URL, previewData.formValues, previewData.peserta, previewData.namaInda, previewData.selectedFilterGroup)} />
@@ -515,4 +527,3 @@ export default function PortalAdministrasiSE2026() {
     </div>
   );
 }
-
