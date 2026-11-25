@@ -9,8 +9,8 @@ import { Briefcase, Car, ClipboardList, FileText, Map as MapIcon, Receipt, Users
 
 export const DOC_TYPES = [
   { id: "daftar-hadir",  icon: <ClipboardList />, label: "Daftar Hadir", desc: "Daftar Hadir Pelatihan SE2026", color: "orange", disabled: false, lockedMessage: "Fitur Daftar Hadir dikunci" },
-  { id: "tanda-terima",  icon: <Briefcase />,     label: "Tanda Terima", desc: "Fitur dikunci", color: "amber", disabled: true, lockedMessage: "Fitur Tanda Terima dikunci" },
-  { id: "surat-pernyataan-kendaraan", icon: <Car />, label: "Super Kendis", desc: "Fitur dikunci", color: "orange", disabled: true, lockedMessage: "Fitur Super Kendis dikunci" },
+  { id: "tanda-terima",  icon: <Briefcase />,     label: "Tanda Terima", desc: "Fitur dikunci", color: "amber", disabled: false, lockedMessage: "Fitur Tanda Terima dikunci" },
+  { id: "surat-pernyataan-kendaraan", icon: <Car />, label: "Super Kendis", desc: "Fitur dikunci", color: "orange", disabled: false, lockedMessage: "Fitur Super Kendis dikunci" },
   { id: "pengeluaran-riil", icon: <Receipt />,    label: "DPR", desc: "Daftar Pengeluaran Riil", color: "amber", disabled: false, lockedMessage: "Fitur DPR dikunci" },
   { id: "spj",           icon: <FileText />,      label: "SPJ", desc: "SPJ Pelatihan SE2026", color: "orange", disabled: false, lockedMessage: "Fitur SPJ dikunci" },
   { id: "spd",           icon: <MapIcon />,           label: "SPD", desc: "Fitur dikunci", color: "amber", disabled: true, lockedMessage: "Fitur SPD dikunci" },
